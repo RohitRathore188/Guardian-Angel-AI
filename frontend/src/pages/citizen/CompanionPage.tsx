@@ -663,9 +663,7 @@ TIMESTAMP:    ${new Date().toLocaleString()}
   const checklistPercent = Math.round((checklistCheckedCount / 6) * 100)
 
   return (
-    <div className={`min-h-screen bg-white/30 flex flex-col relative overflow-hidden ${
-      isTrackingView || (activeTab === 'chat' && !isCompleted) ? 'w-full' : 'max-w-md mx-auto w-full'
-    }`}>
+    <div className="min-h-screen bg-white/30 flex flex-col relative overflow-hidden w-full">
       {/* ── Fixed Critical Emergency Banner ── */}
       {hasCriticalCase && (
         <div className="bg-red-600 text-white text-xs font-bold py-2.5 px-4 flex justify-between items-center z-50 relative animate-pulse shrink-0">
@@ -821,7 +819,7 @@ TIMESTAMP:    ${new Date().toLocaleString()}
         <>
           {/* Tabs Container */}
           <div className="flex bg-dark-950/80 border-b border-white/5 relative z-15 w-full">
-            <div className={`flex w-full ${isTrackingView || (activeTab === 'chat') ? 'max-w-7xl mx-auto px-5' : ''}`}>
+            <div className="flex w-full max-w-7xl mx-auto px-5">
               {[
                 { id: 'chat', label: 'AI Chat', icon: <MessageSquare className="w-3.5 h-3.5" /> },
                 { id: 'tracking', label: 'Tracking & Monitoring', icon: <Compass className="w-3.5 h-3.5" /> },
@@ -1256,7 +1254,7 @@ TIMESTAMP:    ${new Date().toLocaleString()}
 
           {/* Fallback Mobile/Details Views for other Tabs */}
           {!isTrackingView && (
-            <div className="flex-1 overflow-y-auto relative z-10 flex flex-col scrollbar max-w-md mx-auto w-full">
+            <div className="flex-1 overflow-y-auto relative z-10 flex flex-col scrollbar max-w-7xl mx-auto px-5 py-6 w-full">
               
               {/* ── TAB 3: Nearby Help ── */}
               {activeTab === 'help' && currentCase && (
@@ -1812,7 +1810,7 @@ TIMESTAMP:    ${new Date().toLocaleString()}
                               <div className="flex justify-between items-start">
                                 <div className="min-w-0">
                                   <p className="font-mono text-white text-xs font-bold mb-0.5">#{c.id.slice(0, 8).toUpperCase()}</p>
-                                  <p className="text-slate-400 text-[10px] truncate max-w-[200px]">{c.location.address}</p>
+                                  <p className="text-slate-400 text-[10px] truncate max-w-[500px] md:max-w-none">{c.location.address}</p>
                                   <p className="text-slate-300 text-[9px] mt-1 line-clamp-2 leading-relaxed">AI Summary: {c.ai_analysis.slice(0, 80)}...</p>
                                   <p className="text-slate-500 text-[9px] mt-1.5">{new Date(c.created_at).toLocaleDateString()}</p>
                                 </div>
