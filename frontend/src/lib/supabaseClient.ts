@@ -26,4 +26,4 @@ if (IS_MOCK_MODE) {
 }
 
 // Export the active client
-export const supabase = IS_MOCK_MODE ? mockSupabaseClient : realSupabaseClient;
+export const supabase = (IS_MOCK_MODE || !realSupabaseClient) ? mockSupabaseClient : realSupabaseClient;
