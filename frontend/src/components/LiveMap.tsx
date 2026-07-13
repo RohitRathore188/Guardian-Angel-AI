@@ -313,7 +313,7 @@ export default function LiveMap({
     }
   }
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
+  const handleSearchSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!searchQuery.trim()) return
 
@@ -337,7 +337,24 @@ export default function LiveMap({
       setCenterTarget([matchResp.lat, matchResp.lng])
       return
     }
-    alert('No matching GIS assets or incidents found.')
+
+    // 3. Fallback: Query Nominatim Geocoding API for real-time address geocoding
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=1`
+      )
+      const data = await res.json()
+      if (data && data.length > 0) {
+        const lat = parseFloat(data[0].lat)
+        const lon = parseFloat(data[0].lon)
+        setCenterTarget([lat, lon])
+        return
+      }
+    } catch (err) {
+      console.warn('Geocoding search failed:', err)
+    }
+
+    alert('No matching GIS assets, incidents, or locations found.')
   }
 
   return (
