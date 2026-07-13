@@ -16,3 +16,10 @@ values
   ('Bellevue Pediatric Trauma',        'Hospital',             '+91 44 9110 7766', 13.0100, 80.2000, 'Guindy, Chennai, Tamil Nadu 600032'),
   ('Midtown South Precinct',           'Police Station',       '+91 44 9110 2200', 13.0900, 80.2800, 'Royapuram, Chennai, Tamil Nadu 600013')
 on conflict do nothing;
+
+insert into public.missing_children (name, age, gender, description, parent_name, parent_phone, parent_email, photo_url)
+values
+  ('Tommy Carter', 5, 'Male', 'Blonde hair, blue eyes, wearing a red t-shirt and blue shorts. Disappeared from central park playground.', 'John Carter', '+1 (555) 123-4567', 'john.carter@gmail.com', 'https://images.unsplash.com/photo-1503919545889-aef636e10ad4?w=500'),
+  ('Emily Watson', 3, 'Female', 'Brown curly hair, brown eyes, wearing a yellow dress and pink sandals. Lost near subway station.', 'Sarah Watson', '+1 (555) 765-4321', 'sarah.watson@gmail.com', 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=500'),
+  ('Aarav Mehta', 7, 'Male', 'Black straight hair, dark eyes, blue track jacket and jeans. Lost near regional shopping mall.', 'Rajesh Mehta', '+91 98765 43210', 'rajesh.mehta@gmail.com', 'https://images.unsplash.com/photo-1601921004897-b7d582836990?w=500')
+on conflict do nothing;

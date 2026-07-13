@@ -261,6 +261,32 @@ create policy "agencies: read all" on public.agencies
   for select using (true);
 
 -- ═══════════════════════════════════════════════════════════════════════
+-- missing_children — database of reported missing children
+-- ═══════════════════════════════════════════════════════════════════════
+create table if not exists public.missing_children (
+  id            uuid primary key default gen_random_uuid(),
+  name          text not null,
+  age           int,
+  gender        text,
+  description   text,
+  parent_name   text,
+  parent_phone  text,
+  parent_email  text,
+  photo_url     text,
+  created_at    timestamptz not null default now()
+);
+
+alter table public.missing_children enable row level security;
+
+drop policy if exists "missing_children: read all" on public.missing_children;
+create policy "missing_children: read all" on public.missing_children
+  for select using (true);
+
+drop policy if exists "missing_children: write authed" on public.missing_children;
+create policy "missing_children: write authed" on public.missing_children
+  for all using (auth.role() = 'authenticated');
+
+-- ═══════════════════════════════════════════════════════════════════════
 -- Realtime — broadcast changes on reports + notifications
 -- ═══════════════════════════════════════════════════════════════════════
 do $$ begin
@@ -284,5 +310,5 @@ create policy "report-images: public read" on storage.objects
 
 drop policy if exists "report-images: authed upload" on storage.objects;
 drop policy if exists "report-images: public upload" on storage.objects;
-create policy "report-images: public upload" on storage.objects
-  for insert with check (bucket_id = 'report-images');
+create policy "report-images: authed upload" on storage.objects
+  for insert with check (bucket_id = 'report-images' and auth.uid() is not null);

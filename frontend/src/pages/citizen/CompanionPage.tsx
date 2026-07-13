@@ -56,6 +56,7 @@ export default function CompanionPage() {
 
   // Bell toggle state
   const [bellOpen, setBellOpen] = useState(false)
+  const [routeData, setRouteData] = useState<Record<string, { distance: string; duration: string }>>({})
 
   // Notifications filters
   const [searchQuery, setSearchQuery] = useState('')
@@ -149,6 +150,45 @@ export default function CompanionPage() {
   const nearestPolice = getNearestResponder('Police Station')
   const nearestVolunteer = getNearestResponder('Volunteer')
   const nearestNGO = getNearestResponder('NGO Shelter')
+
+  const fetchCompanionRoutes = async (childLat: number, childLng: number) => {
+    const roles = [
+      { id: 'hospital', r: nearestHospital },
+      { id: 'police', r: nearestPolice },
+      { id: 'volunteer', r: nearestVolunteer },
+      { id: 'ngo', r: nearestNGO }
+    ]
+    
+    const results: Record<string, { distance: string; duration: string }> = {}
+    for (const item of roles) {
+      if (item.r) {
+        try {
+          const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${item.r.lng},${item.r.lat};${childLng},${childLat}`)
+          const data = await res.json()
+          if (data.routes && data.routes.length > 0) {
+            const route = data.routes[0]
+            const distKm = (route.distance / 1000).toFixed(1)
+            const durationMin = Math.ceil(route.duration / 60)
+            results[item.id] = {
+              distance: `${distKm} km`,
+              duration: `${durationMin} mins`
+            }
+          }
+        } catch (e) {
+          console.warn(`OSRM fetch failed for companion role ${item.id}`, e)
+        }
+      }
+    }
+    if (Object.keys(results).length > 0) {
+      setRouteData(results)
+    }
+  }
+
+  useEffect(() => {
+    if (currentCase && respondersList.length > 0) {
+      fetchCompanionRoutes(currentCase.location.lat, currentCase.location.lng)
+    }
+  }, [currentCase?.id, respondersList.length])
 
   const isCompleted = currentCase?.status === 'rescued' || currentCase?.status === 'closed'
 
@@ -507,28 +547,35 @@ export default function CompanionPage() {
 
   // Dynamic status mappings for authority responders
   const getResponderStatus = (role: string) => {
+    const route = routeData[role];
+    const defaultDist = role === 'hospital' ? '2.4 km' : role === 'police' ? '1.2 km' : role === 'ngo' ? '3.1 km' : '0.8 km';
+    const defaultEta = role === 'hospital' ? '6 min' : role === 'police' ? '4 min' : role === 'ngo' ? '7 min' : '3 min';
+    
+    const dist = route ? route.distance : defaultDist;
+    const eta = route ? route.duration : defaultEta;
+
     switch (role) {
       case 'hospital':
-        if (timelineStep < 2) return { status: 'Waiting', eta: '6 min', dist: '2.4 km', vehicle: 'Ambulance', activity: 'Awaiting triage allocation', color: 'text-slate-500' }
-        if (timelineStep === 2) return { status: 'Accepted', eta: '5:30', dist: '2.4 km', vehicle: 'Ambulance', activity: 'ER team preparing unit', color: 'text-blue-400 font-bold' }
-        if (timelineStep < 6) return { status: 'Travelling', eta: formatCountdown(6), dist: '1.8 km', vehicle: 'Ambulance', activity: 'En route with life-support', color: 'text-orange-400 font-bold animate-pulse' }
+        if (timelineStep < 2) return { status: 'Waiting', eta, dist, vehicle: 'Ambulance', activity: 'Awaiting triage allocation', color: 'text-slate-500' }
+        if (timelineStep === 2) return { status: 'Accepted', eta, dist, vehicle: 'Ambulance', activity: 'ER team preparing unit', color: 'text-blue-400 font-bold' }
+        if (timelineStep < 6) return { status: 'Travelling', eta, dist, vehicle: 'Ambulance', activity: 'En route with life-support', color: 'text-orange-400 font-bold animate-pulse' }
         if (timelineStep < 7) return { status: 'Arrived', eta: 'Arrived', dist: '0.00 km', vehicle: 'Ambulance', activity: 'Triage team conducting assessment', color: 'text-green-400 font-bold' }
         return { status: 'Completed', eta: 'Arrived', dist: '0.00 km', vehicle: 'Ambulance', activity: 'Child accommodated at facility', color: 'text-green-500 font-bold' }
       case 'police':
-        if (timelineStep < 3) return { status: 'Waiting', eta: '4 min', dist: '1.2 km', vehicle: 'Police SUV', activity: 'Pending dispatch broadcast', color: 'text-slate-500' }
-        if (timelineStep === 3) return { status: 'Accepted', eta: '3:45', dist: '1.2 km', vehicle: 'Police SUV', activity: 'Cruiser preparing dispatch', color: 'text-blue-400 font-bold' }
-        if (timelineStep < 6) return { status: 'Travelling', eta: formatCountdown(4), dist: '0.7 km', vehicle: 'Police SUV', activity: 'Responding with emergency flashers', color: 'text-orange-400 font-bold animate-pulse' }
+        if (timelineStep < 3) return { status: 'Waiting', eta, dist, vehicle: 'Police SUV', activity: 'Pending dispatch broadcast', color: 'text-slate-500' }
+        if (timelineStep === 3) return { status: 'Accepted', eta, dist, vehicle: 'Police SUV', activity: 'Cruiser preparing dispatch', color: 'text-blue-400 font-bold' }
+        if (timelineStep < 6) return { status: 'Travelling', eta, dist, vehicle: 'Police SUV', activity: 'Responding with emergency flashers', color: 'text-orange-400 font-bold animate-pulse' }
         if (timelineStep < 7) return { status: 'Arrived', eta: 'Arrived', dist: '0.00 km', vehicle: 'Police SUV', activity: 'Securing reporting environment', color: 'text-green-400 font-bold' }
         return { status: 'Completed', eta: 'Arrived', dist: '0.00 km', vehicle: 'Police SUV', activity: 'Area secured, case logged', color: 'text-green-500 font-bold' }
       case 'ngo':
-        if (timelineStep < 4) return { status: 'Waiting', eta: '7 min', dist: '3.1 km', vehicle: 'Welfare Van', activity: 'Awaiting dispatch confirmation', color: 'text-slate-500' }
-        if (timelineStep === 4) return { status: 'Accepted', eta: '6:15', dist: '3.1 km', vehicle: 'Welfare Van', activity: 'Welfare staff preparing supplies', color: 'text-blue-400 font-bold' }
-        if (timelineStep < 7) return { status: 'Travelling', eta: formatCountdown(7), dist: '2.0 km', vehicle: 'Welfare Van', activity: 'En route with family counseling kits', color: 'text-orange-400 font-bold animate-pulse' }
+        if (timelineStep < 4) return { status: 'Waiting', eta, dist, vehicle: 'Welfare Van', activity: 'Awaiting dispatch confirmation', color: 'text-slate-500' }
+        if (timelineStep === 4) return { status: 'Accepted', eta, dist, vehicle: 'Welfare Van', activity: 'Welfare staff preparing supplies', color: 'text-blue-400 font-bold' }
+        if (timelineStep < 7) return { status: 'Travelling', eta, dist, vehicle: 'Welfare Van', activity: 'En route with family counseling kits', color: 'text-orange-400 font-bold animate-pulse' }
         return { status: 'Completed', eta: 'Arrived', dist: '0.00 km', vehicle: 'Welfare Van', activity: 'Shelter accommodations prepared', color: 'text-green-500 font-bold' }
       case 'volunteer':
-        if (timelineStep < 5) return { status: 'Waiting', eta: '3 min', dist: '0.8 km', vehicle: 'Motorbike', activity: 'Searching coordinate grid', color: 'text-slate-500' }
-        if (timelineStep === 5) return { status: 'Accepted', eta: '2:30', dist: '0.8 km', vehicle: 'Motorbike', activity: 'Volunteer accepting task', color: 'text-blue-400 font-bold' }
-        if (timelineStep < 6) return { status: 'Travelling', eta: formatCountdown(3), dist: '0.3 km', vehicle: 'Motorbike', activity: 'Bypassing vehicle traffic', color: 'text-orange-400 font-bold animate-pulse' }
+        if (timelineStep < 5) return { status: 'Waiting', eta, dist, vehicle: 'Motorbike', activity: 'Searching coordinate grid', color: 'text-slate-500' }
+        if (timelineStep === 5) return { status: 'Accepted', eta, dist, vehicle: 'Motorbike', activity: 'Volunteer accepting task', color: 'text-blue-400 font-bold' }
+        if (timelineStep < 6) return { status: 'Travelling', eta, dist, vehicle: 'Motorbike', activity: 'Bypassing vehicle traffic', color: 'text-orange-400 font-bold animate-pulse' }
         if (timelineStep < 7) return { status: 'Arrived', eta: 'Arrived', dist: '0.00 km', vehicle: 'Motorbike', activity: 'Providing basic first aid', color: 'text-green-400 font-bold' }
         return { status: 'Completed', eta: 'Arrived', dist: '0.00 km', vehicle: 'Motorbike', activity: 'Volunteer assistance complete', color: 'text-green-500 font-bold' }
       case 'welfare':
@@ -783,6 +830,23 @@ export default function CompanionPage() {
                     <span className="uppercase text-[9px] font-bold text-slate-400">Severity: {currentCase.ai_severity}</span>
                   </div>
                 </div>
+
+                {(() => {
+                  const faceMatch = (currentCase as any).structured_analysis?.face_match || (currentCase as any).ai_analysis?.face_match || null;
+                  if (faceMatch && faceMatch.match_found) {
+                    return (
+                      <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-3.5 text-xs text-yellow-400 space-y-1">
+                        <p className="font-bold text-yellow-500 flex items-center gap-1">
+                          🚨 AMBER ALERT: CHILD IDENTIFIED ({faceMatch.confidence}% Match)
+                        </p>
+                        <p className="text-white font-semibold text-sm">Name: {faceMatch.matched_child?.name}</p>
+                        <p className="text-slate-300">Parent Name: {faceMatch.matched_child?.parent_name}</p>
+                        <p className="text-slate-400">Emergency Status: Parents have been notified via Email and coordinate details have been routed.</p>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
 
                 {/* Message Log */}
                 <div className="flex-1 overflow-y-auto px-1 py-2 space-y-3.5 scrollbar border border-white/5 bg-dark-950/20 rounded-xl p-4">

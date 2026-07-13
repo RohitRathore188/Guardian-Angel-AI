@@ -2,17 +2,23 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import LiveMap from '../../components/LiveMap'
 import { Case, mockCases } from '../../lib/mockData'
-import CaseCard from '../../components/CaseCard'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthContext'
 import apiClient from '../../lib/apiClient'
 import { 
-  LogOut, RefreshCw, Search, Shield, Bell, AlertTriangle, 
-  CheckCircle, Activity, Settings, Database
+  LogOut, Search, Shield, Bell, AlertTriangle, Settings, Database
 } from 'lucide-react'
 import { useNotifications } from '../../context/NotificationContext'
-import SeverityBadge from '../../components/SeverityBadge'
 import { getRoleConfig } from '../../config/getRoleConfig'
+import WidgetRenderer from '../../components/WidgetRenderer'
+import { getWidgets, WidgetConfig } from '../../config/widgets'
+import ActionCard from '../../components/ActionCard'
+import { getActions, ActionLog } from '../../config/actions'
+import AnalyticsDashboard from '../../components/AnalyticsDashboard'
+import AiDashboard from '../../components/AiDashboard'
+import { getAnalytics } from '../../config/analytics'
+import { globalEventBus } from '../../core/events/eventBus'
+import { initEventLogger } from '../../core/events/eventLogger'
 
 interface MockUser {
   id: string
@@ -40,10 +46,17 @@ export default function DashboardPage() {
     const generated: Case[] = []
     
     for (let i = 1; i <= 40; i++) {
-      const offsetLat = (Math.random() - 0.5) * 0.15
-      const offsetLng = (Math.random() - 0.5) * 0.15
+      const offsetLat = (Math.random() - 0.5) * 0.12 // Slightly tighter search radius to keep it dense
+      const offsetLng = (Math.random() - 0.5) * 0.12
       const lat = baseLat + offsetLat
-      const lng = baseLng + offsetLng
+      let lng = baseLng + offsetLng
+      
+      // Prevent points from spawning in the ocean (East of Chennai coastline)
+      const coastLine = 80.275 + (lat - 13.0827) * 0.08
+      if (lng > coastLine) {
+        lng = baseLng - Math.abs(offsetLng) // Mirror inland
+      }
+      
       const severity = i % 4 === 0 ? 'critical' : i % 3 === 0 ? 'high' : 'moderate'
       const status = i % 5 === 0 ? 'closed' : i % 3 === 0 ? 'rescued' : i % 2 === 0 ? 'dispatched' : 'reported'
       
@@ -63,14 +76,12 @@ export default function DashboardPage() {
 
   const [cases, setCases] = useState<Case[]>(generateDemoCases())
   const [selectedCase, setSelectedCase] = useState<Case | null>(null)
-  const [loadingCases, setLoadingCases] = useState(false)
-
   const [activeTab, setActiveTab] = useState('Dashboard')
-  const [showHeatmap, setShowHeatmap] = useState(false)
-  const [showTraffic, setShowTraffic] = useState(false)
+  const [analyticsSubTab, setAnalyticsSubTab] = useState<'ops' | 'ai'>('ops')
+  const showHeatmap = false
+  const showTraffic = false
   const showSearchZones = true
   const [opRadius, setOpRadius] = useState<number>(5) // default 5 KM
-  const [caseSubTab, setCaseSubTab] = useState<'telemetry' | 'vision'>('telemetry')
   const authLat = 13.0827
   const authLng = 80.2707
 
@@ -95,6 +106,61 @@ export default function DashboardPage() {
   const { notifications, markAsRead, markAllAsRead, addNotification } = useNotifications()
   const [bellOpen, setBellOpen] = useState(false)
 
+  const [widgets, setWidgets] = useState<WidgetConfig[]>([])
+
+  useEffect(() => {
+    setWidgets(getWidgets(currentRole))
+  }, [currentRole])
+
+  const [actionLogs, setActionLogs] = useState<ActionLog[]>(() => {
+    const saved = localStorage.getItem('guardian-action-logs')
+    if (saved) {
+      try {
+        return JSON.parse(saved)
+      } catch (err) {
+        console.error(err)
+      }
+    }
+    return [
+      { who: 'System Operator', role: 'admin', actionTitle: 'System Boot Triage Online', caseId: 'global', when: new Date(Date.now() - 3600000).toLocaleTimeString(), timestamp: Date.now() - 3600000 },
+      { who: 'Officer Sarah J.', role: 'police', actionTitle: 'Assigned Patrol Officer', caseId: 'democase-1001', when: new Date(Date.now() - 1800000).toLocaleTimeString(), timestamp: Date.now() - 1800000 },
+      { who: 'Dr. Aaron Croft', role: 'hospital', actionTitle: 'Intake Admission Completed', caseId: 'democase-1002', when: new Date(Date.now() - 900000).toLocaleTimeString(), timestamp: Date.now() - 900000 }
+    ]
+  })
+
+  const logAction = (logEntry: Omit<ActionLog, 'timestamp' | 'when'>) => {
+    const newLog: ActionLog = {
+      ...logEntry,
+      when: new Date().toLocaleTimeString(),
+      timestamp: Date.now()
+    }
+    setActionLogs((prev) => {
+      const updated = [newLog, ...prev].slice(0, 50)
+      localStorage.setItem('guardian-action-logs', JSON.stringify(updated))
+      return updated
+    })
+  }
+
+  const handleDragStart = (e: React.DragEvent, idx: number) => {
+    e.dataTransfer.setData('text/plain', idx.toString())
+  }
+
+  const handleDragOver = (e: React.DragEvent, _idx: number) => {
+    e.preventDefault()
+  }
+
+  const handleDrop = (e: React.DragEvent, targetIdx: number) => {
+    const sourceIdx = parseInt(e.dataTransfer.getData('text/plain'))
+    if (isNaN(sourceIdx)) return
+
+    setWidgets((prev) => {
+      const next = [...prev]
+      const [removed] = next.splice(sourceIdx, 1)
+      next.splice(targetIdx, 0, removed)
+      return next;
+    })
+  }
+
   // System Health statistics
   const systemHealthMetrics = {
     supabaseStatus: 'Connected',
@@ -105,30 +171,7 @@ export default function DashboardPage() {
     mockMode: 'Enabled'
   }
 
-  // Helper mapper for structured vision reports
-  const getVisionData = (c: Case) => {
-    if (c.structured_analysis) return c.structured_analysis
-    const isCritical = c.ai_severity === 'critical'
-    return {
-      severity: c.ai_severity,
-      assessment: c.ai_analysis,
-      age: isCritical ? "Newborn (0-2 months)" : "2-3 years old",
-      gender: "Male",
-      condition: isCritical ? "Dehydrated, crying, hypothermic exposure" : "Conscious, mild bruising, frightened",
-      injuries: isCritical ? ["Dehydration", "Exposure", "Hypothermia"] : ["Bleeding", "Exposure"],
-      blood_detected: isCritical ? false : true,
-      conscious: true,
-      crying: true,
-      weather_exposure: "High",
-      hazards: isCritical ? ["Road Hazard", "Traffic Hazard"] : ["None"],
-      crowd_density: "Low",
-      objects_detected: ["Child", "Blanket", "Bag", "Bottle", "Road"],
-      confidence: isCritical ? 92 : 88,
-      recommended_response: isCritical 
-        ? "Immediately dispatch pediatric trauma ambulance and local precinct police cruiser." 
-        : "Alert regional child welfare officer and dispatch nearest volunteer team."
-    }
-  }
+
 
   // ── Dynamic Role Engine ──
   // All role-specific data lives in src/config/roles/*.ts
@@ -151,6 +194,29 @@ export default function DashboardPage() {
 
   const [activeDispatches, setActiveDispatches] = useState<Record<string, any>>({})
 
+  const playEmergencyAlertSound = () => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const playTone = (time: number, freq: number, duration: number) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.3, time);
+        gain.gain.exponentialRampToValueAtTime(0.01, time + duration);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(time);
+        osc.stop(time + duration);
+      };
+      playTone(ctx.currentTime, 880, 0.2);
+      playTone(ctx.currentTime + 0.15, 880, 0.2);
+      playTone(ctx.currentTime + 0.3, 1200, 0.4);
+    } catch (e) {
+      console.error("Web Audio API alert failed:", e);
+    }
+  }
+
   // Glide animation loop for dispatched vehicles
   useEffect(() => {
     const interval = setInterval(() => {
@@ -162,8 +228,17 @@ export default function DashboardPage() {
           const d = copy[caseId]
           if (d.progress < 1) {
             const nextProgress = Math.min(d.progress + 0.02, 1)
-            const currentLat = d.startLat + (d.targetLat - d.startLat) * nextProgress
-            const currentLng = d.startLng + (d.targetLng - d.startLng) * nextProgress
+            let currentLat = d.startLat + (d.targetLat - d.startLat) * nextProgress
+            let currentLng = d.startLng + (d.targetLng - d.startLng) * nextProgress
+
+            if (d.routeCoords && d.routeCoords.length > 0) {
+              const idx = Math.floor(nextProgress * (d.routeCoords.length - 1))
+              const pt = d.routeCoords[idx]
+              if (pt) {
+                currentLat = pt[0]
+                currentLng = pt[1]
+              }
+            }
 
             copy[caseId] = {
               ...d,
@@ -187,11 +262,96 @@ export default function DashboardPage() {
     return () => clearInterval(interval)
   }, [])
 
-  const startDispatchAnimation = (caseId: string, targetLat: number, targetLng: number, typeOverride?: string) => {
+  // Enterprise Event Bus Real-Time Subscribers
+  useEffect(() => {
+    initEventLogger();
+
+    const unsubCreated = globalEventBus.subscribe('CaseCreated', (payload) => {
+      playEmergencyAlertSound();
+      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+        new Notification("🚨 EMERGENCY ACTIVE RESCUE ALARM", {
+          body: `New distress case logged: ${payload.data.location?.address || 'Unknown Address'}`,
+        });
+      }
+      setCases((prev) => {
+        if (prev.some(c => c.id === payload.caseId)) return prev;
+        return [payload.data, ...prev];
+      });
+    });
+
+    const unsubUpdated = globalEventBus.subscribe('CaseUpdated', (payload) => {
+      setCases((prev) =>
+        prev.map((c) => (c.id === payload.caseId ? { ...c, ...payload.data } : c))
+      );
+    });
+
+    const unsubAccepted = globalEventBus.subscribe('CaseAccepted', (payload) => {
+      setCases((prev) =>
+        prev.map((c) => (c.id === payload.caseId ? { ...c, status: 'dispatched' } : c))
+      );
+      addNotification({
+        title: `✅ Case Accepted`,
+        body: `Case #${payload.caseId?.slice(0, 8).toUpperCase()} has been accepted by responders.`,
+        caseId: payload.caseId || 'global',
+        category: 'Police',
+        priority: 'high',
+      });
+    });
+
+    const unsubStarted = globalEventBus.subscribe('ResponderStarted', (payload) => {
+      startDispatchAnimation(payload.caseId!, payload.data.lat, payload.data.lng, payload.data.type);
+    });
+
+    const unsubClosed = globalEventBus.subscribe('CaseClosed', (payload) => {
+      setCases((prev) =>
+        prev.map((c) => (c.id === payload.caseId ? { ...c, status: 'closed' } : c))
+      );
+      addNotification({
+        title: `🏁 Rescue Case Secured`,
+        body: `Case #${payload.caseId?.slice(0, 8).toUpperCase()} has been successfully closed.`,
+        caseId: payload.caseId || 'global',
+        category: 'System',
+        priority: 'high',
+      });
+    });
+
+    const unsubBroadcast = globalEventBus.subscribe('BroadcastCreated', (payload) => {
+      addNotification({
+        title: `📢 EMERGENCY BROADCAST`,
+        body: payload.data.message || 'Area emergency warning broadcast active.',
+        caseId: 'global',
+        category: 'Admin',
+        priority: 'high',
+      });
+    });
+
+    const unsubNotification = globalEventBus.subscribe('NotificationCreated', (payload) => {
+      addNotification({
+        title: payload.data.title || 'System Notification',
+        body: payload.data.message || '',
+        caseId: payload.caseId || 'global',
+        category: 'System',
+        priority: 'medium',
+      });
+    });
+
+    return () => {
+      unsubCreated();
+      unsubUpdated();
+      unsubAccepted();
+      unsubStarted();
+      unsubClosed();
+      unsubBroadcast();
+      unsubNotification();
+    };
+  }, []);
+
+  const startDispatchAnimation = async (caseId: string, targetLat: number, targetLng: number, typeOverride?: string) => {
     const type = typeOverride || (currentRole === 'hospital' ? 'hospital' : currentRole === 'ngo' ? 'ngo' : 'police')
     const startLat = targetLat + (Math.random() > 0.5 ? 0.015 : -0.015)
     const startLng = targetLng + (Math.random() > 0.5 ? 0.015 : -0.015)
 
+    // Pre-insert with straight line fallback
     setActiveDispatches((prev) => ({
       ...prev,
       [caseId]: {
@@ -204,8 +364,30 @@ export default function DashboardPage() {
         targetLng,
         progress: 0,
         type,
+        routeCoords: []
       },
     }))
+
+    // Fetch OSRM coordinates asynchronously
+    try {
+      const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${startLng},${startLat};${targetLng},${targetLat}?overview=full&geometries=geojson`)
+      const data = await res.json()
+      if (data.routes && data.routes.length > 0) {
+        const coords = data.routes[0].geometry.coordinates.map((c: any) => [c[1], c[0]])
+        setActiveDispatches((prev) => {
+          if (!prev[caseId]) return prev
+          return {
+            ...prev,
+            [caseId]: {
+              ...prev[caseId],
+              routeCoords: coords
+            }
+          }
+        })
+      }
+    } catch (err) {
+      console.warn("OSRM dispatch route fetch failed, using straight line fallback.", err)
+    }
   }
 
   const loadCases = async () => {
@@ -213,7 +395,6 @@ export default function DashboardPage() {
       setCases(generateDemoCases())
       return
     }
-    setLoadingCases(true)
     try {
       const response = await apiClient.get('/api/cases')
       if (response.data && Array.isArray(response.data)) {
@@ -222,8 +403,6 @@ export default function DashboardPage() {
     } catch (err) {
       console.warn('Backend API /api/cases offline. Using mock cases for demonstration.', err)
       setCases(mockCases)
-    } finally {
-      setLoadingCases(false)
     }
   }
 
@@ -243,15 +422,53 @@ export default function DashboardPage() {
 
   // Supabase Realtime subscription
   useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    }
+
     const channel = supabase
       .channel('reports-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'reports' }, () => {
-        loadCases()
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reports' }, (payload: any) => {
+        const newCase: Case = {
+          id: payload.new?.id || `case-${Date.now()}`,
+          status: payload.new?.status || 'reported',
+          created_at: payload.new?.created_at || new Date().toISOString(),
+          ai_severity: payload.new?.ai_severity || 'moderate',
+          ai_analysis: payload.new?.ai_analysis || 'Distress report registered.',
+          ai_dispatch_reason: payload.new?.ai_dispatch_reason || '',
+          evidence: payload.new?.evidence || [],
+          location: {
+            address: payload.new?.address || 'Chennai Central',
+            lat: parseFloat(payload.new?.latitude) || 13.0827,
+            lng: parseFloat(payload.new?.longitude) || 80.2707
+          }
+        };
+        globalEventBus.publish({
+          type: 'CaseCreated',
+          timestamp: Date.now(),
+          caseId: newCase.id,
+          source: 'server',
+          data: newCase
+        });
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'reports' }, (payload: any) => {
+        globalEventBus.publish({
+          type: 'CaseUpdated',
+          timestamp: Date.now(),
+          caseId: payload.new?.id,
+          source: 'server',
+          data: payload.new
+        });
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'reports' }, (_payload: any) => {
+        loadCases();
       })
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [])
+  }, [demoModeActive])
 
   const handleStatusUpdate = async (caseId: string, newStatus: string) => {
     if (newStatus === 'dispatched') {
@@ -316,49 +533,7 @@ export default function DashboardPage() {
 
   const hasCriticalCase = filteredCases.some(c => c.ai_severity === 'critical' && c.status !== 'closed')
 
-  // Dynamic actions click router
-  const handleQuickAction = (action: string) => {
-    if (action.includes('SOS') || action.includes('Report')) {
-      navigate('/report')
-    } else if (action.includes('Helpline') || action.includes('1098')) {
-      window.open('tel:1098')
-    } else if (action.includes('Police') || action.includes('112')) {
-      window.open('tel:112')
-    } else if (action.includes('Dispatch') || action.includes('Accept')) {
-      if (selectedCase) {
-        handleStatusUpdate(selectedCase.id, 'dispatched')
-      } else {
-        alert('Please select an active incident from the list first.')
-      }
-    } else if (action.includes('Complete') || action.includes('Secure') || action.includes('Reunify')) {
-      if (selectedCase) {
-        handleStatusUpdate(selectedCase.id, 'rescued')
-      } else {
-        alert('Please select an active incident from the list first.')
-      }
-    } else if (action.includes('Companion')) {
-      if (selectedCase) {
-        navigate(`/companion?case_id=${selectedCase.id}`)
-      } else {
-        alert('Please select an incident to open the companion console.')
-      }
-    } else if (action.includes('Notes') || action.includes('Counselling') || action.includes('Legal')) {
-      alert(`Action successfully logged in incident database: ${action}`)
-    } else if (action.includes('Broadcast')) {
-      addNotification({
-        caseId: 'global',
-        title: '📢 CRITICAL BROADCAST ALERT',
-        body: 'Alert issued across all emergency grids. Check tracking zones.',
-        category: 'Emergency',
-        priority: 'critical'
-      })
-      alert('Global Alert Broadcasted to all active response units.')
-    } else if (action.includes('Shelter')) {
-      alert('Shelter capacity allocated. St. Jude Center updated.')
-    } else {
-      alert(`Triggered action: ${action}`)
-    }
-  }
+
 
   // Admin user manager update
   const handleUserRoleChange = (userId: string, newRole: string) => {
@@ -553,379 +728,68 @@ export default function DashboardPage() {
         
         {/* TAB 1: Dashboard Workspace */}
         {activeTab === 'Dashboard' ? (
-          <div className="flex-1 flex flex-col gap-6 overflow-hidden">
-            
-            {/* Dynamic statistics cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 shrink-0">
-              {config.stats.map((stat, i) => (
-                <div key={i} className="card p-5 border border-white/10 bg-dark-900/40 hover:border-white/20 transition-all flex flex-col justify-between">
-                  <div>
-                    <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider mb-1">{stat.label}</p>
-                    <p className={`text-2xl font-black ${stat.color}`}>{stat.value}</p>
-                  </div>
-                  <p className="text-slate-400 text-[10px] mt-1.5">{stat.desc}</p>
-                </div>
+          <div className="flex-1 flex flex-col gap-6 overflow-y-auto scrollbar pr-1">
+            <div className="grid grid-cols-12 gap-6 auto-rows-max">
+              {widgets.map((w, idx) => (
+                <WidgetRenderer
+                  key={w.id}
+                  widget={w}
+                  role={currentRole}
+                  cases={filteredCases}
+                  setCases={setCases}
+                  selectedCase={selectedCase}
+                  setSelectedCase={setSelectedCase}
+                  handleStatusUpdate={handleStatusUpdate}
+                  notifications={notifications}
+                  addNotification={addNotification}
+                  mockAgencies={mockAgencies}
+                  startDispatchAnimation={startDispatchAnimation}
+                  activeDispatches={activeDispatches}
+                  demoModeActive={demoModeActive}
+                  actionLogs={actionLogs}
+                  logAction={logAction}
+                  index={idx}
+                  onDragStart={handleDragStart}
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop}
+                />
               ))}
             </div>
 
-            {/* Split workspace */}
-            <div className="flex-1 flex flex-col xl:grid xl:grid-cols-12 gap-6 overflow-hidden">
-              
-              {/* Column A: Interactive GIS Map or placements/SOS progress boards (Left) */}
-              <div className="col-span-12 xl:col-span-6 flex flex-col gap-6 overflow-hidden h-[300px] xl:h-full">
-                
-                {currentRole === 'citizen' ? (
-                  /* Citizen Rescue Tracker progress console */
-                  <div className="flex-1 card p-5 border border-white/10 flex flex-col justify-between overflow-y-auto bg-dark-900/40">
-                    <div>
-                      <h3 className="text-white font-bold text-xs uppercase tracking-wider border-b border-white/5 pb-2 mb-4 flex items-center gap-2">
-                        <Activity className="w-4 h-4 text-primary animate-pulse" />
-                        My Active SOS Status Tracker
-                      </h3>
-                      <div className="relative border-l border-white/5 pl-4 ml-2.5 space-y-4 text-[10px] text-slate-400">
-                        {[
-                          { label: 'Emergency Report Logged', desc: 'Case logged at coordinate coordinates.', done: true },
-                          { label: 'AI Risk Graded', desc: 'Case prioritised as HIGH/CRITICAL severity.', done: true },
-                          { label: 'Ambulance / Patrol Dispatched', desc: 'Vehicles en route via GPS routing.', done: selectedCase?.status !== 'reported' },
-                          { label: 'Child Secured & Accommodated', desc: 'Minor placed in shelter facility.', done: selectedCase?.status === 'rescued' || selectedCase?.status === 'closed' }
-                        ].map((s, idx) => (
-                          <div key={idx} className="relative">
-                            <div className={`absolute -left-7 top-0.5 w-5 h-5 rounded-full flex items-center justify-center border ${
-                              s.done
-                                ? 'bg-green-500/20 border-green-500/40 text-green-400'
-                                : 'bg-dark-700 border-white/5 text-slate-655'
-                            }`}>
-                              {s.done ? <CheckCircle className="w-2.5 h-2.5" /> : <div className="w-1 h-1 rounded-full bg-slate-600" />}
-                            </div>
-                            <p className={`font-bold ${s.done ? 'text-white' : 'text-slate-500'}`}>{s.label}</p>
-                            <p className="text-[9px] text-slate-500">{s.desc}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="bg-primary/5 p-3 rounded-lg border border-primary/20 text-[10px] text-slate-300">
-                      <strong>AI Advice:</strong> Seek a covered dryer shelter area immediately. Keep child calm. Do not move unless danger is imminent.
-                    </div>
-                  </div>
-                ) : currentRole === 'child_welfare' ? (
-                  /* Child Welfare Accommodations placement dashboard */
-                  <div className="flex-1 card p-5 border border-white/10 flex flex-col overflow-y-auto bg-dark-900/40 space-y-4">
-                    <h3 className="text-white font-bold text-xs uppercase tracking-wider border-b border-white/5 pb-2">
-                      Verified Placement Facilities
-                    </h3>
-                    <div className="space-y-3">
-                      {mockAgencies.filter(a => a.type.includes('Welfare') || a.type.includes('Shelter')).map((a, i) => (
-                        <div key={i} className="bg-dark-950/60 p-3.5 rounded-xl border border-white/5 flex justify-between items-center text-xs">
-                          <div>
-                            <p className="text-white font-bold">{a.name}</p>
-                            <p className="text-slate-400 text-[10px] mt-0.5">{a.address}</p>
-                          </div>
-                          <span className="text-emerald-400 font-bold text-[10px] bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded">
-                            Available Beds: {4 + i * 2}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  /* Default Map view for operational commanders */
-                  <div className="flex-1 relative rounded-2xl overflow-hidden border border-white/10 card shadow-2xl">
-                    <div className="absolute top-4 left-4 z-[1000] flex flex-col gap-2">
-                      <button
-                        onClick={() => setShowHeatmap(!showHeatmap)}
-                        className={`bg-dark-900/90 border rounded-lg px-3 py-2 text-[10px] font-semibold transition-all flex items-center gap-2 shadow-lg ${showHeatmap ? 'border-primary text-white bg-primary/10' : 'border-white/10 text-slate-300'
-                          }`}
-                      >
-                        <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-                        Heatmap
-                      </button>
-                      <button
-                        onClick={() => setShowTraffic(!showTraffic)}
-                        className={`bg-dark-900/90 border rounded-lg px-3 py-2 text-[10px] font-semibold transition-all flex items-center gap-2 shadow-lg ${showTraffic ? 'border-orange-500 text-white bg-orange-500/10' : 'border-white/10 text-slate-300'
-                          }`}
-                      >
-                        <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
-                        Traffic
-                      </button>
-                    </div>
+            {/* Dynamic Command Actions Deck Console */}
+            {(() => {
+              const actionContext = {
+                currentCase: selectedCase,
+                currentRole: currentRole,
+                user: profile || { name: 'Sarah J.' },
+                cases,
+                setCases,
+                setSelectedCase,
+                activeDispatches,
+                startDispatchAnimation,
+                addNotification,
+                playAlertSound: playEmergencyAlertSound,
+                navigate,
+                logAction,
+              };
+              const actions = getActions(currentRole, actionContext);
 
-                    <LiveMap
-                      cases={filteredCases}
-                      selectedCase={selectedCase}
-                      onCaseSelect={setSelectedCase}
-                      showHeatmap={showHeatmap}
-                      showTraffic={showTraffic}
-                      showSearchZones={showSearchZones}
-                      activeDispatches={activeDispatches}
-                    />
-                  </div>
-                )}
+              if (actions.length === 0) return null;
 
-                {/* Quick actions deck */}
-                <div className="card-glass p-5 border border-white/10 flex flex-col gap-3 shrink-0">
-                  <h3 className="text-white font-bold text-xs uppercase tracking-wider border-b border-white/5 pb-1 text-slate-400">
-                    Quick Action Command Deck
+              return (
+                <div className="card border border-white/10 bg-dark-900/20 p-5 rounded-2xl shrink-0 mt-6 space-y-4">
+                  <h3 className="text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                    Dynamic Command Actions Deck ({actions.length})
                   </h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    {config.actions.map((act) => (
-                      <button
-                        key={act}
-                        onClick={() => handleQuickAction(act)}
-                        className="py-2.5 px-3 bg-dark-700/40 hover:bg-dark-700 border border-white/5 rounded-xl text-[10px] font-semibold text-slate-300 hover:text-white transition-all uppercase tracking-wider text-center"
-                      >
-                        {act}
-                      </button>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                    {actions.map((act) => (
+                      <ActionCard key={act.id} action={act} context={{ ...actionContext, logAction }} />
                     ))}
                   </div>
                 </div>
-              </div>
-
-              {/* Column B: Dynamic Case Feed (Middle) */}
-              <div className="col-span-12 xl:col-span-3 flex flex-col gap-4 overflow-hidden h-[350px] xl:h-full">
-                <div className="flex items-center justify-between border-b border-white/5 pb-2">
-                  <h2 className="text-white font-bold text-xs tracking-wider uppercase">Incidents Queue ({filteredCases.length})</h2>
-                  <button
-                    onClick={loadCases}
-                    disabled={loadingCases}
-                    className="p-1.5 rounded-lg hover:bg-dark-700 text-slate-400 hover:text-white transition-colors disabled:opacity-40"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${loadingCases ? 'animate-spin' : ''}`} />
-                  </button>
-                </div>
-
-                <div className="flex-1 overflow-y-auto pr-1 space-y-3 scrollbar">
-                  {filteredCases.length === 0 ? (
-                    <div className="text-center py-12 text-slate-500 text-xs">
-                      No matching cases in this view.
-                    </div>
-                  ) : (
-                    filteredCases.map((c) => (
-                      <CaseCard
-                         key={c.id}
-                         case_={c}
-                         isSelected={selectedCase?.id === c.id}
-                         onClick={() => setSelectedCase(c)}
-                      />
-                    ))
-                  )}
-                </div>
-              </div>
-
-              {/* Column C: Selected Case Details & Live Alerts Feed (Right) */}
-              <div className="col-span-12 xl:col-span-3 flex flex-col gap-6 overflow-hidden h-[400px] xl:h-full">
-                
-                {/* Selected Case details panel */}
-                <div className="flex-1 card p-5 border border-white/10 flex flex-col overflow-y-auto bg-dark-900/30">
-                  <h2 className="text-white font-bold text-xs tracking-wider uppercase border-b border-white/5 pb-2 mb-4">
-                    Case Inspector View
-                  </h2>
-
-                  {selectedCase ? (
-                    <div className="flex flex-col gap-4 flex-1">
-                      {/* Visual evidence */}
-                      <div className="w-full h-28 rounded-xl overflow-hidden bg-dark-700 border border-white/10 shrink-0">
-                        <img
-                          src={selectedCase.evidence[0] ? selectedCase.evidence[0].file_url : 'https://placehold.co/400x300/111118/e94560?text=GA'}
-                          alt="Incident evidence"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-
-                      {/* Sub Tabs */}
-                      <div className="flex bg-dark-950/60 border border-white/5 p-1 rounded-xl shrink-0">
-                        <button
-                          onClick={() => setCaseSubTab('telemetry')}
-                          className={`flex-1 py-1 text-[9px] font-bold rounded-lg transition-all ${
-                            caseSubTab === 'telemetry'
-                              ? 'bg-primary text-white'
-                              : 'text-slate-500 hover:text-slate-300'
-                          }`}
-                        >
-                          Telemetry
-                        </button>
-                        <button
-                          onClick={() => setCaseSubTab('vision')}
-                          className={`flex-1 py-1 text-[9px] font-bold rounded-lg transition-all ${
-                            caseSubTab === 'vision'
-                              ? 'bg-primary text-white'
-                              : 'text-slate-500 hover:text-slate-300'
-                          }`}
-                        >
-                          AI Vision 2.0
-                        </button>
-                      </div>
-
-                      {caseSubTab === 'telemetry' ? (
-                        <div className="flex-1 min-w-0 space-y-3 text-[11px]">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <SeverityBadge severity={selectedCase.ai_severity as any} />
-                            <span className="text-slate-500 font-mono">#{selectedCase.id.slice(0, 8).toUpperCase()}</span>
-                          </div>
-                          
-                          <div className="bg-dark-950/50 p-2.5 rounded-lg border border-white/5">
-                            <p className="text-slate-300 leading-relaxed">
-                              <strong>AI Summary:</strong> {selectedCase.ai_analysis}
-                            </p>
-                          </div>
-
-                          <div className="space-y-1">
-                            <span className="text-[8px] text-slate-500 font-bold uppercase block">Reporting Address</span>
-                            <p className="text-slate-400 truncate">{selectedCase.location.address}</p>
-                          </div>
-
-                          {/* Dynamic Action Buttons based on selectedCase status */}
-                          <div className="flex gap-2 pt-1.5 shrink-0">
-                            {selectedCase.status === 'reported' && (
-                              <button
-                                onClick={() => handleStatusUpdate(selectedCase.id, 'dispatched')}
-                                className="w-full py-1.5 bg-primary hover:bg-red-600 text-white font-bold uppercase rounded text-[9px] tracking-wider"
-                              >
-                                Dispatch Rescue Unit
-                              </button>
-                            )}
-                            {selectedCase.status === 'dispatched' && (
-                              <button
-                                onClick={() => handleStatusUpdate(selectedCase.id, 'rescued')}
-                                className="w-full py-1.5 bg-green-500/20 border border-green-500/40 text-green-400 font-bold uppercase rounded text-[9px] tracking-wider"
-                              >
-                                Mark Rescued / Safe
-                              </button>
-                            )}
-                            {selectedCase.status === 'rescued' && (
-                              <button
-                                onClick={() => handleStatusUpdate(selectedCase.id, 'closed')}
-                                className="w-full py-1.5 bg-dark-800 border border-white/5 text-slate-400 font-bold uppercase rounded text-[9px] tracking-wider"
-                              >
-                                Close Case File
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex-1 min-w-0 space-y-3.5 overflow-y-auto max-h-[160px] pr-0.5 scrollbar text-[10px]">
-                          {(() => {
-                            const vision = getVisionData(selectedCase)
-                            return (
-                              <>
-                                {/* Confidence Score Gauge */}
-                                <div className="bg-dark-950/40 p-2 rounded-lg border border-white/5 flex items-center justify-between gap-2.5">
-                                  <div>
-                                    <h4 className="text-white font-bold text-[9px] uppercase tracking-wider">AI Accuracy Scan</h4>
-                                    <span className="text-slate-550 text-[8px] block">Scene match status</span>
-                                  </div>
-                                  <div className="relative w-9 h-9 shrink-0 flex items-center justify-center">
-                                    <svg className="w-full h-full transform -rotate-90">
-                                      <circle cx="18" cy="18" r="15" fill="transparent" stroke="#e2e8f0" strokeWidth="2.5" />
-                                      <circle cx="18" cy="18" r="15" fill="transparent" stroke="#ef4444" strokeWidth="2.5" strokeDasharray="94.2" strokeDashoffset={`${94.2 * (1 - vision.confidence / 100)}`} />
-                                    </svg>
-                                    <span className="absolute text-white font-black text-[8px] font-mono">{vision.confidence}%</span>
-                                  </div>
-                                </div>
-
-                                {/* Risk meter */}
-                                <div className="bg-dark-950/40 p-2 rounded-lg border border-white/5 space-y-1">
-                                  <span className="text-slate-500 uppercase font-bold text-[8px] block">Severity Matrix</span>
-                                  <div className="flex gap-0.5 h-2 rounded-full overflow-hidden bg-dark-900 p-0.5">
-                                    <div className={`flex-1 rounded-full ${vision.severity === 'low' ? 'bg-green-500' : 'bg-dark-800'}`} />
-                                    <div className={`flex-1 rounded-full ${vision.severity === 'medium' ? 'bg-yellow-500' : 'bg-dark-800'}`} />
-                                    <div className={`flex-1 rounded-full ${vision.severity === 'high' ? 'bg-orange-500' : 'bg-dark-800'}`} />
-                                    <div className={`flex-1 rounded-full ${vision.severity === 'critical' ? 'bg-red-500' : 'bg-dark-800'}`} />
-                                  </div>
-                                </div>
-
-                                {/* Details */}
-                                <div className="bg-dark-950/40 p-2 rounded-lg border border-white/5 grid grid-cols-2 gap-1 text-[9px]">
-                                  <div>
-                                    <span className="text-slate-500 uppercase font-bold block">Age / Gender</span>
-                                    <span className="text-white font-semibold mt-0.5 block">{vision.age} / {vision.gender}</span>
-                                  </div>
-                                  <div>
-                                    <span className="text-slate-500 uppercase font-bold block">Exposure</span>
-                                    <span className="text-blue-400 font-semibold mt-0.5 block">{vision.weather_exposure} Exposure</span>
-                                  </div>
-                                </div>
-
-                                {/* Injury Matrix */}
-                                <div className="bg-dark-950/40 p-2 rounded-lg border border-white/5 space-y-1">
-                                  <span className="text-slate-500 uppercase font-bold text-[8px] block">Injury Matrix</span>
-                                  <div className="grid grid-cols-2 gap-1 text-[8px]">
-                                    {[
-                                      { name: 'Head Injury', prob: vision.injuries.includes('Head Injury') ? '92%' : '8%' },
-                                      { name: 'Bleeding', prob: vision.blood_detected ? '88%' : '5%' },
-                                      { name: 'Fracture', prob: vision.injuries.includes('Fracture') ? '85%' : '12%' },
-                                      { name: 'Dehydration', prob: '94%' }
-                                    ].map((inj) => (
-                                      <div key={inj.name} className="bg-dark-900/50 p-1 rounded border border-white/5 flex justify-between">
-                                        <span className="text-slate-450">{inj.name}</span>
-                                        <span className={`font-bold ${parseFloat(inj.prob) > 50 ? 'text-red-400 font-extrabold' : 'text-slate-500'}`}>{inj.prob}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-
-                                {/* Object list */}
-                                <div className="bg-dark-950/40 p-2 rounded-lg border border-white/5 space-y-1">
-                                  <span className="text-slate-500 uppercase font-bold text-[8px] block">Detections</span>
-                                  <div className="flex flex-wrap gap-1">
-                                    {vision.objects_detected.map((obj: string) => (
-                                      <span key={obj} className="text-[8px] bg-dark-900 px-1.5 py-0.5 rounded text-slate-350">
-                                        {obj}
-                                      </span>
-                                    ))}
-                                  </div>
-                                </div>
-
-                                {/* Image Scan Comparison */}
-                                {selectedCase.evidence && selectedCase.evidence.length > 1 && (
-                                  <div className="bg-primary/5 p-2 rounded-lg border border-primary/20 space-y-2">
-                                    <span className="text-white font-bold text-[9px] uppercase tracking-wider block">Scan Comparison</span>
-                                    <div className="grid grid-cols-2 gap-1">
-                                      {selectedCase.evidence.map((img: any, idx: number) => (
-                                        <div key={idx} className="relative rounded overflow-hidden h-9 bg-dark-900 border border-white/5">
-                                          <img src={img.file_url} className="w-full h-full object-cover" />
-                                        </div>
-                                      ))}
-                                    </div>
-                                    <p className="text-slate-400 text-[8px] leading-relaxed italic">
-                                      AI Scan: Posture shift delta synchronized.
-                                    </p>
-                                  </div>
-                                )}
-                              </>
-                            )
-                          })()}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="flex-1 flex items-center justify-center text-slate-500 text-[10px] text-center">
-                      Select an incident from the grid to view live status.
-                    </div>
-                  )}
-                </div>
-
-                {/* Alerts Feed */}
-                <div className="h-44 card p-4 border border-white/10 flex flex-col overflow-hidden bg-dark-900/30 shrink-0">
-                  <h3 className="text-white font-bold text-xs uppercase tracking-wider border-b border-white/5 pb-2 mb-2 flex items-center justify-between">
-                    <span>Incident Activity Feed</span>
-                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                  </h3>
-                  <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 scrollbar text-[10px]">
-                    {filteredCases.slice(0, 3).map((c, i) => (
-                      <div key={i} className="flex gap-2 leading-relaxed border-b border-white/5 pb-1.5 last:border-0">
-                        <span className="text-primary font-bold">{new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                        <p className="text-slate-400 truncate max-w-[140px] md:max-w-none">
-                          <strong className="text-white">Alert:</strong> {c.ai_analysis}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-              </div>
-
-            </div>
-
+              );
+            })()}
           </div>
         ) : activeTab === 'Cases' || activeTab === 'My Reports' || activeTab === 'Welfare Cases' || activeTab === 'Patients' || activeTab === 'Missions' ? (
           /* TAB 2: Dynamic Incidents Registry Grid */
@@ -991,125 +855,39 @@ export default function DashboardPage() {
                 showTraffic={showTraffic}
                 showSearchZones={showSearchZones}
                 activeDispatches={activeDispatches}
+                role={currentRole}
               />
             </div>
           </div>
         ) : activeTab === 'Analytics' || activeTab === 'My Rewards' ? (
           /* TAB 4: Dynamic Analytics Views */
-          <div className="flex-1 flex flex-col gap-6 overflow-y-auto pr-1">
-            <h2 className="text-white font-bold text-sm tracking-wider uppercase border-b border-white/5 pb-2">
-              {config.chartTitle}
-            </h2>
-            
-            {/* Analytics Header Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="card p-5 border border-white/10 bg-dark-900/40">
-                <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider mb-1">Average Response Mobilize</p>
-                <p className="text-3xl font-extrabold text-primary">3.2 Minutes</p>
-                <p className="text-slate-450 text-[10px] mt-1">Goal target standard: under 5 minutes</p>
+          <div className="flex-1 flex flex-col gap-6 overflow-hidden h-full">
+            {currentRole === 'admin' && (
+              <div className="flex bg-dark-900/60 border border-white/5 p-1 rounded-xl shrink-0 w-80">
+                <button
+                  onClick={() => setAnalyticsSubTab('ops')}
+                  className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg uppercase tracking-wider transition-all ${
+                    analyticsSubTab === 'ops' ? 'bg-primary text-white' : 'text-slate-450 hover:text-slate-300'
+                  }`}
+                >
+                  Operational Stats
+                </button>
+                <button
+                  onClick={() => setAnalyticsSubTab('ai')}
+                  className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg uppercase tracking-wider transition-all ${
+                    analyticsSubTab === 'ai' ? 'bg-primary text-white' : 'text-slate-450 hover:text-slate-300'
+                  }`}
+                >
+                  AI Intelligence
+                </button>
               </div>
-              <div className="card p-5 border border-white/10 bg-dark-900/40">
-                <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider mb-1">Total Active Rescue Patrols</p>
-                <p className="text-3xl font-extrabold text-blue-400">12 Units</p>
-                <p className="text-slate-450 text-[10px] mt-1">Allocated across Chennai coordinate sectors</p>
-              </div>
-              <div className="card p-5 border border-white/10 bg-dark-900/40">
-                <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider mb-1">Rescue Safety Success Rate</p>
-                <p className="text-3xl font-extrabold text-green-400">98.2 %</p>
-                <p className="text-slate-450 text-[10px] mt-1">Secure reunification target met</p>
-              </div>
-            </div>
+            )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              
-              {/* Dynamic SVG Bar Chart */}
-              <div className="card p-5 border border-white/10 bg-dark-900/40 h-80 flex flex-col justify-between">
-                <h3 className="text-white font-bold text-xs uppercase tracking-wider">{config.chartTitle}</h3>
-                
-                {config.chartType === 'response' ? (
-                  /* Response Time chart */
-                  <div className="flex gap-3.5 items-end h-44 border-b border-white/10 pb-2.5">
-                    {[15, 30, 45, 60, 20, 80, 45, 95, 35, 75].map((h, idx) => (
-                      <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
-                        <div className="w-full bg-primary/20 border border-primary/50 rounded-t hover:bg-primary/40 transition-colors" style={{ height: `${h}%` }} />
-                        <span className="text-[8px] text-slate-500 font-mono">P{idx + 1}</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : config.chartType === 'beds' ? (
-                  /* Bed occupancy chart */
-                  <div className="flex gap-3.5 items-end h-44 border-b border-white/10 pb-2.5">
-                    {[65, 70, 75, 80, 85, 90, 75, 70, 60, 58].map((h, idx) => (
-                      <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
-                        <div className="w-full bg-blue-500/20 border border-blue-500/50 rounded-t hover:bg-blue-500/40 transition-colors" style={{ height: `${h}%` }} />
-                        <span className="text-[8px] text-slate-500 font-mono">D{idx + 1}</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : config.chartType === 'missions' ? (
-                  /* Missions completed rewards list */
-                  <div className="flex gap-3.5 items-end h-44 border-b border-white/10 pb-2.5">
-                    {[10, 20, 35, 50, 60, 75, 85, 90, 110, 140].map((h, idx) => (
-                      <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
-                        <div className="w-full bg-emerald-500/20 border border-emerald-500/50 rounded-t hover:bg-emerald-500/40 transition-colors" style={{ height: `${(h / 150) * 100}%` }} />
-                        <span className="text-[8px] text-slate-500 font-mono">M{idx + 1}</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  /* NGO supply stocks levels chart */
-                  <div className="flex gap-3.5 items-end h-44 border-b border-white/10 pb-2.5">
-                    {[90, 80, 75, 60, 45, 40, 85, 95, 100, 95].map((h, idx) => (
-                      <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
-                        <div className="w-full bg-orange-500/20 border border-orange-500/50 rounded-t hover:bg-orange-500/40 transition-colors" style={{ height: `${h}%` }} />
-                        <span className="text-[8px] text-slate-500 font-mono">S{idx + 1}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                
-                <div className="flex justify-between text-[8px] text-slate-500 uppercase tracking-widest font-bold">
-                  <span>Start Range</span>
-                  <span>Mid Range</span>
-                  <span>End target</span>
-                </div>
-              </div>
-
-              {/* Dynamic Severity Breakdown List */}
-              <div className="card p-5 border border-white/10 bg-dark-900/40 h-80 flex flex-col justify-between">
-                <h3 className="text-white font-bold text-xs uppercase tracking-wider">Severity Classification breakdown</h3>
-                <div className="space-y-4 my-auto">
-                  <div>
-                    <div className="flex justify-between text-[9px] text-slate-400 mb-1">
-                      <span>⚡ CRITICAL CASES STATUS</span>
-                      <span>{cases.filter(c => c.ai_severity === 'critical').length} incidents</span>
-                    </div>
-                    <div className="h-1.5 w-full bg-dark-950 rounded-full overflow-hidden">
-                      <div className="h-full bg-red-500 rounded-full" style={{ width: `${cases.length > 0 ? (cases.filter(c => c.ai_severity === 'critical').length / cases.length) * 100 : 0}%` }} />
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex justify-between text-[9px] text-slate-400 mb-1">
-                      <span>🩺 HIGH RISK DISPATCHES</span>
-                      <span>{cases.filter(c => c.ai_severity === 'high').length} incidents</span>
-                    </div>
-                    <div className="h-1.5 w-full bg-dark-950 rounded-full overflow-hidden">
-                      <div className="h-full bg-orange-500 rounded-full" style={{ width: `${cases.length > 0 ? (cases.filter(c => c.ai_severity === 'high').length / cases.length) * 100 : 0}%` }} />
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex justify-between text-[9px] text-slate-400 mb-1">
-                      <span>🌾 MODERATE / SHELTER NEEDS</span>
-                      <span>{cases.filter(c => c.ai_severity === 'moderate').length} incidents</span>
-                    </div>
-                    <div className="h-1.5 w-full bg-dark-950 rounded-full overflow-hidden">
-                      <div className="h-full bg-yellow-500 rounded-full" style={{ width: `${cases.length > 0 ? (cases.filter(c => c.ai_severity === 'moderate').length / cases.length) * 100 : 0}%` }} />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-            </div>
+            {currentRole === 'admin' && analyticsSubTab === 'ai' ? (
+              <AiDashboard cases={cases} />
+            ) : (
+              <AnalyticsDashboard config={getAnalytics(currentRole)} cases={cases} />
+            )}
           </div>
         ) : activeTab === 'Reports' || activeTab === 'Reunification Logs' || activeTab === 'Audit Log' ? (
           /* TAB 5: Downloadable Reports */

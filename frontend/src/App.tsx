@@ -16,7 +16,7 @@ const AdminPage = lazy(() => import('./pages/admin/AdminPage'))
 
 function RouteFallback() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+    <div className="min-h-screen flex items-center justify-center bg-dark-900">
       <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
     </div>
   )
@@ -27,7 +27,7 @@ function App() {
     <AuthProvider>
       <NotificationProvider>
         <BrowserRouter>
-          <div className="min-h-screen relative overflow-hidden" style={{background: '#f8fafc'}}>
+          <div className="min-h-screen relative overflow-hidden" style={{background: '#0a0a0f'}}>
             {/* Global Ambient Mesh 3D Layer */}
             <div className="ambient-bg">
               <div className="blob-orb blob-purple" />
