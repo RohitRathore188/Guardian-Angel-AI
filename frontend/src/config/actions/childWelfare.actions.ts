@@ -91,7 +91,7 @@ const childWelfareActions: ActionConfig[] = [
     visibleWhen: (ctx) => !!ctx.currentCase,
     successMessage: 'Trauma support counseling booked.',
     handler: (ctx) => {
-      alert('Psychologist session booked: July 15, 10:00 AM.');
+      ctx.triggerToast?.('Counseling Scheduled', 'Psychologist session booked: July 15, 10:00 AM.', 'success');
       ctx.logAction({
         who: ctx.user?.name || 'Priya Sharma',
         role: 'child_welfare',

@@ -34,6 +34,7 @@ export interface ActionContext {
   playAlertSound?: () => void;
   navigate?: (path: string) => void;
   logAction: (actionLog: Omit<ActionLog, 'timestamp' | 'when'>) => void;
+  triggerToast?: (title: string, body: string, type: 'emergency' | 'success' | 'warning' | 'info') => void;
 }
 
 export interface ActionConfig {

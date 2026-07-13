@@ -175,7 +175,7 @@ const hospitalActions: ActionConfig[] = [
     visibleWhen: (ctx) => !!ctx.currentCase,
     successMessage: 'Intake transfer coordinated successfully.',
     handler: (ctx) => {
-      alert('Patient coordinated for safe transport dispatch to St. Jude Pediatric Specialty Center.');
+      ctx.triggerToast?.('Patient Coordinated', 'Patient coordinated for safe transport dispatch to St. Jude Pediatric Specialty Center.', 'success');
       ctx.logAction({
         who: ctx.user?.name || 'Dr. Aaron',
         role: 'hospital',

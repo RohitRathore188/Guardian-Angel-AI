@@ -112,7 +112,7 @@ const adminActions: ActionConfig[] = [
     buttonStyle: 'info',
     successMessage: 'AI Synthesis finished successfully.',
     handler: (ctx) => {
-      alert('Guardian AI: Synthesized total caseload parameters. Downloaded summary report: guardian_ai_audit.txt');
+      ctx.triggerToast?.('Guardian AI Synthesis', 'Synthesized total caseload parameters. Downloaded summary report: guardian_ai_audit.txt', 'success');
       ctx.logAction({
         who: ctx.user?.name || 'Administrator',
         role: 'admin',
@@ -132,7 +132,7 @@ const adminActions: ActionConfig[] = [
     buttonStyle: 'secondary',
     successMessage: 'Database logs export initiated.',
     handler: (ctx) => {
-      alert('Exported file: GUARDIAN_INCIDENTS_DB_EXPORT.csv');
+      ctx.triggerToast?.('Data Export', 'Exported file: GUARDIAN_INCIDENTS_DB_EXPORT.csv', 'success');
       ctx.logAction({
         who: ctx.user?.name || 'Administrator',
         role: 'admin',
@@ -152,7 +152,7 @@ const adminActions: ActionConfig[] = [
     buttonStyle: 'secondary',
     successMessage: 'User management console active.',
     handler: (ctx) => {
-      alert('Routing to user manager profiles directory layout.');
+      ctx.triggerToast?.('User Manager', 'Routing to user manager profiles directory layout.', 'info');
       ctx.logAction({
         who: ctx.user?.name || 'Administrator',
         role: 'admin',
@@ -172,7 +172,7 @@ const adminActions: ActionConfig[] = [
     buttonStyle: 'secondary',
     successMessage: 'System audit monitoring diagnostics complete.',
     handler: (ctx) => {
-      alert('System health status: Supabase Latency: 42ms. OSRM status: Online. Audio sirens: Enabled.');
+      ctx.triggerToast?.('System Diagnostics', 'Supabase Latency: 42ms. OSRM status: Online. Audio sirens: Enabled.', 'info');
       ctx.logAction({
         who: ctx.user?.name || 'Administrator',
         role: 'admin',

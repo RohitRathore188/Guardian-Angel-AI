@@ -90,7 +90,7 @@ const ngoActions: ActionConfig[] = [
     buttonStyle: 'secondary',
     successMessage: 'Inventory counts updated.',
     handler: (ctx) => {
-      alert('Inventory database updated: Blankets: +50, Emergency Kits: +20.');
+      ctx.triggerToast?.('Inventory Updated', 'Inventory database updated: Blankets: +50, Emergency Kits: +20.', 'success');
       ctx.logAction({
         who: ctx.user?.name || 'Raj Kumar',
         role: 'ngo',

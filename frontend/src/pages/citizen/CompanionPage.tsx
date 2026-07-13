@@ -39,7 +39,7 @@ export default function CompanionPage() {
   const initialTab = searchParams.get('tab') as any || 'chat'
 
   // Central Notification Hooks
-  const { notifications, unreadCount, addNotification, markAsRead, markAllAsRead } = useNotifications()
+  const { notifications, unreadCount, addNotification, markAsRead, markAllAsRead, triggerToast } = useNotifications()
 
   const [activeTab, setActiveTab] = useState<'chat' | 'tracking' | 'help' | 'notifications' | 'my-reports'>(initialTab)
   const [messages, setMessages] = useState<Message[]>([])
@@ -1143,8 +1143,8 @@ TIMESTAMP:    ${new Date().toLocaleString()}
                     </a>
                   </div>
                   <button 
-                    onClick={() => alert("Live GPS sharing broadcast enabled for local responder grids...")}
-                    className="w-full text-center py-2 bg-dark-800 border border-white/10 hover:border-white/20 rounded-lg text-white font-bold uppercase text-[9px]"
+                    onClick={() => triggerToast('Location Shared', 'Live GPS sharing broadcast enabled for local responder grids...', 'success')}
+                    className="w-full text-center py-2 bg-dark-800 border border-white/10 hover:border-white/20 rounded-lg text-white font-bold uppercase text-[9px] cursor-pointer"
                   >
                     Share Live Location Coords
                   </button>
@@ -1188,7 +1188,7 @@ TIMESTAMP:    ${new Date().toLocaleString()}
                     <MapPin className="w-4 h-4 text-orange-400" />
                     <span>Nearby Help</span>
                   </button>
-                  <button onClick={() => alert('Seeking child safety guide and emergency first aid manuals...')} className="flex flex-col items-center justify-center p-2 rounded-lg hover:bg-white/5 transition-all text-slate-300 hover:text-white border border-transparent hover:border-white/5 gap-1 text-[9px] font-bold uppercase">
+                  <button onClick={() => triggerToast('Guidebook', 'Seeking child safety guide and emergency first aid manuals...', 'info')} className="flex flex-col items-center justify-center p-2 rounded-lg hover:bg-white/5 transition-all text-slate-300 hover:text-white border border-transparent hover:border-white/5 gap-1 text-[9px] font-bold uppercase cursor-pointer">
                     <Info className="w-4 h-4 text-emerald-400" />
                     <span>Guidebook</span>
                   </button>
@@ -1621,9 +1621,9 @@ TIMESTAMP:    ${new Date().toLocaleString()}
                                 <div key={idx} className="bg-dark-900/60 p-2 rounded-lg border border-white/5 text-[9px] space-y-1.5">
                                   <p className="text-white font-bold truncate">{d.doc}</p>
                                   <div className="flex gap-1">
-                                    <button onClick={() => alert(`Previewing ${d.doc}...`)} className="text-primary font-bold uppercase hover:underline">Preview</button>
+                                    <button onClick={() => triggerToast('Document Preview', `Previewing ${d.doc}...`, 'info')} className="text-primary font-bold uppercase hover:underline cursor-pointer">Preview</button>
                                     <span className="text-slate-600">|</span>
-                                    <button onClick={() => handleDownloadPDF(selectedHistoryCase.id)} className="text-slate-400 hover:text-white uppercase hover:underline">PDF</button>
+                                    <button onClick={() => handleDownloadPDF(selectedHistoryCase.id)} className="text-slate-400 hover:text-white uppercase hover:underline cursor-pointer">PDF</button>
                                   </div>
                                 </div>
                               ))}

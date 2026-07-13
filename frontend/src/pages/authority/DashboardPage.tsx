@@ -13,6 +13,7 @@ import { getRoleConfig } from '../../config/getRoleConfig'
 import WidgetRenderer from '../../components/WidgetRenderer'
 import { getWidgets, WidgetConfig } from '../../config/widgets'
 import ActionCard from '../../components/ActionCard'
+import EmergencyCommandDrawer from '../../components/EmergencyCommandDrawer'
 import { getActions, ActionLog } from '../../config/actions'
 import AnalyticsDashboard from '../../components/AnalyticsDashboard'
 import AiDashboard from '../../components/AiDashboard'
@@ -103,7 +104,7 @@ export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState('')
 
   // Notifications bell state
-  const { notifications, markAsRead, markAllAsRead, addNotification } = useNotifications()
+  const { notifications, markAsRead, markAllAsRead, addNotification, triggerToast } = useNotifications()
   const [bellOpen, setBellOpen] = useState(false)
 
   const [widgets, setWidgets] = useState<WidgetConfig[]>([])
@@ -250,7 +251,7 @@ export default function DashboardPage() {
 
             if (nextProgress === 1) {
               const label = d.type === 'hospital' ? 'Ambulance' : d.type === 'ngo' ? 'NGO Rescue Van' : 'Police Cruiser'
-              alert(`🟢 [DISPATCH ARRIVAL] ${label} has reached coordinates for Case #${caseId.slice(0, 8).toUpperCase()}. The child has been accommodated and secured!`)
+              triggerToast('🟢 Dispatch Arrival', `${label} has reached coordinates for Case #${caseId.slice(0, 8).toUpperCase()}. The child has been accommodated and secured!`, 'success')
             }
           }
         })
@@ -547,13 +548,13 @@ export default function DashboardPage() {
       // If updating Sarah J. (current user context), trigger live override change
       setActiveRoleOverride(newRole)
     }
-    alert(`User Role updated to: ${newRole.toUpperCase()}`)
+    triggerToast('Role Updated', `User Role updated to: ${newRole.toUpperCase()}`, 'success')
   }
 
   const handleDownloadPDF = (reportId: string) => {
     const c = cases.find(item => item.id === reportId) || mockCases.find(item => item.id === reportId);
     if (!c) {
-      alert(`Case #${reportId} not found.`);
+      triggerToast('Error', `Case #${reportId} not found.`, 'warning');
       return;
     }
     
@@ -1126,6 +1127,19 @@ TIMESTAMP:    ${new Date().toLocaleString()}
           </div>
         )}
       </div>
+      {selectedCase && (
+        <EmergencyCommandDrawer
+          selectedCase={selectedCase}
+          setSelectedCase={setSelectedCase}
+          currentRole={currentRole}
+          profile={profile}
+          cases={cases}
+          setCases={setCases}
+          activeDispatches={activeDispatches}
+          startDispatchAnimation={startDispatchAnimation}
+          logAction={logAction}
+        />
+      )}
     </div>
   )
 }

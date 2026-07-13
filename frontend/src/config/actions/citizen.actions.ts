@@ -15,7 +15,7 @@ const citizenActions: ActionConfig[] = [
       if (ctx.navigate) {
         ctx.navigate('/report');
       } else {
-        alert('Navigate helper not available. Please visit /report.');
+        ctx.triggerToast?.('Navigation Error', 'Navigate helper not available. Please visit /report.', 'warning');
       }
       ctx.logAction({
         who: ctx.user?.name || 'Citizen User',
@@ -40,7 +40,7 @@ const citizenActions: ActionConfig[] = [
       if (ctx.currentCase && ctx.navigate) {
         ctx.navigate(`/companion?case_id=${ctx.currentCase.id}`);
       } else {
-        alert('Please select an active incident case to track rescue.');
+        ctx.triggerToast?.('Tracking Error', 'Please select an active incident case to track rescue.', 'warning');
       }
       ctx.logAction({
         who: ctx.user?.name || 'Citizen User',
@@ -67,7 +67,7 @@ const citizenActions: ActionConfig[] = [
         category: 'AI',
         priority: 'info',
       });
-      alert('AI Scanner resolved: Posture alignment delta: 94%. Weather Hazard: Medium. Identity Index matches Supabase registry Missing Children library.');
+      ctx.triggerToast?.('AI Scan Resolved', 'Posture alignment delta: 94%. Weather Hazard: Medium. Identity Index matches Supabase registry Missing Children library.', 'success');
       ctx.logAction({
         who: ctx.user?.name || 'Citizen User',
         role: 'citizen',
@@ -157,7 +157,7 @@ const citizenActions: ActionConfig[] = [
     buttonStyle: 'secondary',
     successMessage: 'Report downloaded successfully.',
     handler: (ctx) => {
-      alert('Downloaded case report: GUARDIAN_ANGEL_SOS_LOG.pdf');
+      ctx.triggerToast?.('Report Generated', 'Downloaded case report: GUARDIAN_ANGEL_SOS_LOG.pdf', 'success');
       ctx.logAction({
         who: ctx.user?.name || 'Citizen User',
         role: 'citizen',
@@ -177,7 +177,7 @@ const citizenActions: ActionConfig[] = [
     buttonStyle: 'secondary',
     successMessage: 'Thank you for your rating!',
     handler: (ctx) => {
-      alert('Feedback form: Rating submitted: 5/5 stars.');
+      ctx.triggerToast?.('Feedback Submitted', 'Feedback form: Rating submitted: 5/5 stars.', 'success');
       ctx.logAction({
         who: ctx.user?.name || 'Citizen User',
         role: 'citizen',

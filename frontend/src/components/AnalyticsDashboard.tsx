@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNotifications } from '../context/NotificationContext';
 import * as Icons from 'lucide-react';
 import { AnalyticsConfig } from '../config/analytics/types';
 import KPICard from './KPICard';
@@ -10,6 +11,7 @@ interface AnalyticsDashboardProps {
 }
 
 export default function AnalyticsDashboard({ config, cases }: AnalyticsDashboardProps) {
+  const { triggerToast } = useNotifications();
   const [activeFilter, setActiveFilter] = useState<'30d' | '7d' | 'critical' | 'completed'>('30d');
   const [downloadingReportId, setDownloadingReportId] = useState<string | null>(null);
 
@@ -36,7 +38,7 @@ export default function AnalyticsDashboard({ config, cases }: AnalyticsDashboard
     setDownloadingReportId(`${reportId}-${format}`);
     setTimeout(() => {
       setDownloadingReportId(null);
-      alert(`Export Successful: Downloaded report registry file in ${format} format.`);
+      triggerToast('Export Successful', `Downloaded report registry file in ${format} format.`, 'success');
     }, 1500);
   };
 

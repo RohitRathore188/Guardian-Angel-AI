@@ -8,6 +8,8 @@ import apiClient from '../../lib/apiClient'
 import { 
   LogOut, AlertTriangle, Shield, Database, Settings, RefreshCw
 } from 'lucide-react'
+import { useNotifications } from '../../context/NotificationContext'
+import EmergencyCommandDrawer from '../../components/EmergencyCommandDrawer'
 
 interface UserProfile {
   id: string
@@ -21,6 +23,7 @@ interface UserProfile {
 
 export default function AdminPage() {
   const { profile, signOut } = useAuth()
+  const { triggerToast } = useNotifications()
   const navigate = useNavigate()
   const [users, setUsers] = useState<UserProfile[]>([])
   const [loadingUsers, setLoadingUsers] = useState(true)
@@ -145,7 +148,7 @@ export default function AdminPage() {
             changed = true
 
             if (nextProgress === 1) {
-              alert(`🟢 [DISPATCH TELEMETRY] Emergency vehicle has reached Case #${caseId.toUpperCase()}. Coordinates secured!`)
+              triggerToast('🟢 Dispatch Telemetry', `Emergency vehicle has reached Case #${caseId.toUpperCase()}. Coordinates secured!`, 'success')
             }
           }
         })
@@ -270,12 +273,12 @@ export default function AdminPage() {
 
   // Export reports mapping
   const handleExportData = (format: 'CSV' | 'PDF' | 'JSON', type: string) => {
-    alert(`Exporting ${type} in ${format} format... Package preparing for download.`)
+    triggerToast('Export Initiated', `Exporting ${type} in ${format} format... Package preparing for download.`, 'info')
   }
 
   // Quick Action triggers
   const handleBroadcastAlert = () => {
-    alert("📢 [GLOBAL BROADCAST] Sending emergency notification alert to all active child rescue officers, nearby volunteers and regional hospital triage centers.")
+    triggerToast('📢 Global Broadcast', 'Sending emergency notification alert to all active child rescue officers, regional volunteers, and hospital triage centers.', 'emergency')
   }
 
   return (
@@ -450,7 +453,7 @@ export default function AdminPage() {
                     <button onClick={() => setActiveTab('logs')} className="py-2 px-3 bg-dark-700/60 border border-white/5 text-slate-300 font-bold rounded-lg uppercase text-[9px] hover:text-white">
                       ⚙️ System Config
                     </button>
-                    <button onClick={() => alert('Initiating active drone coordinate scans...')} className="py-2 px-3 bg-dark-700/60 border border-white/5 text-slate-300 font-bold rounded-lg uppercase text-[9px] hover:text-white">
+                     <button onClick={() => triggerToast('Drone Diagnostics', 'Initiating active drone coordinate scans...', 'info')} className="py-2 px-3 bg-dark-700/60 border border-white/5 text-slate-300 font-bold rounded-lg uppercase text-[9px] hover:text-white">
                       🛰️ Coordinate Drones
                     </button>
                   </div>
@@ -739,13 +742,13 @@ export default function AdminPage() {
                           }`}>{u.status || 'Active'}</span>
                         </td>
                         <td className="p-4 flex gap-2">
-                          <button onClick={() => alert('Opening user edit metadata...')} className="bg-dark-700 hover:bg-dark-600 border border-white/5 text-slate-300 hover:text-white px-2.5 py-1 rounded text-[9px] uppercase">
+                          <button onClick={() => triggerToast('User Editor', 'Opening user edit metadata...', 'info')} className="bg-dark-700 hover:bg-dark-600 border border-white/5 text-slate-300 hover:text-white px-2.5 py-1 rounded text-[9px] uppercase">
                             Edit
                           </button>
                           <button 
                             onClick={() => {
                               setUsers(prev => prev.map(usr => usr.id === u.id ? { ...usr, status: usr.status === 'Suspended' ? 'Active' : 'Suspended' } : usr))
-                              alert('User status configuration updated.')
+                              triggerToast('User Configured', 'User status configuration updated.', 'success')
                             }} 
                             className="bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-400 px-2.5 py-1 rounded text-[9px] uppercase font-bold"
                           >
@@ -902,6 +905,19 @@ export default function AdminPage() {
         )}
 
       </div>
+      {selectedCase && (
+        <EmergencyCommandDrawer
+          selectedCase={selectedCase}
+          setSelectedCase={setSelectedCase}
+          currentRole="admin"
+          profile={profile}
+          cases={cases}
+          setCases={setCases}
+          activeDispatches={activeDispatches}
+          startDispatchAnimation={startDispatchAnimation}
+          logAction={(log: any) => console.log('Admin logAction:', log)}
+        />
+      )}
     </div>
   )
 }

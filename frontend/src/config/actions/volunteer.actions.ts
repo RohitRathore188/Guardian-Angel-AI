@@ -101,7 +101,7 @@ const volunteerActions: ActionConfig[] = [
     visibleWhen: (ctx) => !!ctx.currentCase,
     successMessage: 'Field update registered in database.',
     handler: (ctx) => {
-      alert('Field note posted: Area secured. Child is warm. Found under shelter canopy.');
+      ctx.triggerToast?.('Field Note Posted', 'Field note posted: Area secured. Child is warm. Found under shelter canopy.', 'success');
       ctx.logAction({
         who: ctx.user?.name || 'Rahul Dev',
         role: 'volunteer',

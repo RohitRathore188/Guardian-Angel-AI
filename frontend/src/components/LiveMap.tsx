@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css'
 import { Case } from '../lib/mockData'
 import { getMapConfig } from '../config/maps'
 import * as Icons from 'lucide-react'
+import { useNotifications } from '../context/NotificationContext'
 
 // Coordinate distance utility
 const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -205,6 +206,7 @@ export default function LiveMap({
   activeDispatches = {},
   role = 'admin',
 }: LiveMapProps) {
+  const { triggerToast } = useNotifications()
   const mapConfig = getMapConfig(role)
 
   const [selectedRadius, setSelectedRadius] = useState<number>(mapConfig.defaultRadius)
@@ -215,6 +217,13 @@ export default function LiveMap({
   const [boundsList, setBoundsList] = useState<[number, number][] | null>(null)
   const [fitBoundsTrigger, setFitBoundsTrigger] = useState<number>(0)
   const [searchQuery, setSearchQuery] = useState('')
+
+  // Fly to selected case when chosen
+  useEffect(() => {
+    if (selectedCase) {
+      setCenterTarget([selectedCase.location.lat, selectedCase.location.lng])
+    }
+  }, [selectedCase])
 
   const defaultCenter: [number, number] = cases.length > 0
     ? [cases[0].location.lat, cases[0].location.lng]
@@ -354,7 +363,7 @@ export default function LiveMap({
       console.warn('Geocoding search failed:', err)
     }
 
-    alert('No matching GIS assets, incidents, or locations found.')
+    triggerToast('Search Failed', 'No matching GIS assets, incidents, or locations found.', 'warning')
   }
 
   return (
@@ -554,37 +563,23 @@ export default function LiveMap({
         {selectedCase ? (
           <>
             {/* Child Marker */}
-            <Marker position={[selectedCase.location.lat, selectedCase.location.lng]} icon={gisIcons.Emergency}>
-              <Popup>
-                <div className="p-3 text-slate-800 space-y-2 text-[11px] min-w-[200px]">
-                  <div className="flex justify-between items-center border-b border-white/10 pb-1.5">
-                    <span className="font-extrabold text-primary">Case #{selectedCase.id.slice(0, 8).toUpperCase()}</span>
-                    <span className="px-1.5 py-0.5 bg-primary/10 text-primary border border-primary/20 rounded font-black text-[9px] uppercase">
-                      {selectedCase.ai_severity}
-                    </span>
-                  </div>
-                  <p className="font-semibold text-slate-700 leading-normal">{selectedCase.location.address}</p>
-                  <p className="text-slate-500 italic leading-normal">AI Summary: {selectedCase.ai_analysis}</p>
+            <Marker
+              position={[selectedCase.location.lat, selectedCase.location.lng]}
+              icon={gisIcons.Emergency}
+            />
 
-                  {/* Timeline representation inside popup */}
-                  <div className="flex justify-between text-[8px] text-slate-400 uppercase tracking-widest font-extrabold pt-1">
-                    <span>SOS Alarm</span>
-                    <span>Triage</span>
-                    <span>Dispatched</span>
-                  </div>
-
-                  {/* Popup Quick Actions */}
-                  <div className="pt-2">
-                    <button
-                      onClick={() => alert(`Initiating direct rescue operations for case #${selectedCase.id.slice(0,8)}`)}
-                      className="w-full text-center py-1.5 bg-primary hover:bg-primary/90 text-white rounded font-bold uppercase tracking-wider text-[9px]"
-                    >
-                      {role === 'citizen' ? 'Open Guardian AI' : role === 'police' ? 'Dispatch Cruiser' : role === 'hospital' ? 'Send Trauma Ambulance' : 'Accept Mission'}
-                    </button>
-                  </div>
-                </div>
-              </Popup>
-            </Marker>
+            {/* Highlighted emergency radius for selected case */}
+            <Circle
+              center={[selectedCase.location.lat, selectedCase.location.lng]}
+              radius={2000} // 2km default search zone radius
+              pathOptions={{
+                fillColor: '#ef4444',
+                fillOpacity: 0.08,
+                color: '#ef4444',
+                weight: 2,
+                dashArray: '6, 6',
+              }}
+            />
 
             {/* Rescue circle boundaries */}
             {toggleRadius && (
@@ -657,15 +652,7 @@ export default function LiveMap({
                 eventHandlers={{
                   click: () => onCaseSelect(c),
                 }}
-              >
-                <Popup>
-                  <div className="p-2 text-slate-800 text-[11px] min-w-[150px]">
-                    <p className="font-extrabold text-primary">Case #{c.id.slice(0, 8).toUpperCase()}</p>
-                    <p className="font-semibold text-slate-700 leading-normal mt-1">{c.location.address}</p>
-                    <p className="text-slate-500 capitalize mt-0.5">Priority: {c.ai_severity}</p>
-                  </div>
-                </Popup>
-              </Marker>
+              />
             );
           })
         )}
