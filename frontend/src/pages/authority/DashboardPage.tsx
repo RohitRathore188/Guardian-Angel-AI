@@ -638,7 +638,7 @@ export default function DashboardPage() {
               <option value={2}>2 KM</option>
               <option value={5}>5 KM</option>
               <option value={10}>10 KM</option>
-              <option value={100}>All Cases</option>
+              <option value={10000}>All Cases (National)</option>
             </select>
           </div>
 
