@@ -44,13 +44,13 @@ export default function LandingPage() {
             </span>
           </div>
 
-          <h1 className="text-4xl sm:text-6xl font-black tracking-tight text-slate-900 leading-none">
+          <h1 className="text-4xl sm:text-6xl font-black tracking-tight text-white leading-none">
             Guardian <br />
             <span className="bg-gradient-to-r from-primary to-indigo-600 bg-clip-text text-transparent">Angel AI</span>
           </h1>
 
-          <p className="text-slate-500 text-base sm:text-lg leading-relaxed">
-            Helping citizens and responders locate and rescue distressed children <strong className="text-slate-700">safely and instantly</strong> — with visual AI scanning and automated multi-agency dispatch.
+          <p className="text-slate-400 text-base sm:text-lg leading-relaxed">
+            Helping citizens and responders locate and rescue distressed children <strong className="text-slate-200">safely and instantly</strong> — with visual AI scanning and automated multi-agency dispatch.
           </p>
 
           {/* CTA Buttons */}
@@ -98,16 +98,16 @@ export default function LandingPage() {
       </main>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-0 border-t border-slate-200 bg-white/50 backdrop-blur-md relative z-10">
+      <div className="grid grid-cols-3 gap-0 border-t border-white/10 bg-dark-900/60 backdrop-blur-md relative z-10">
         {[
           { label: 'Cases Handled', value: `${stats.handled} Active`, icon: '🆘' },
           { label: 'Avg. Response', value: '< 5 min', icon: '⚡' },
           { label: 'Children Rescued', value: `${stats.rescued} Saved`, icon: '👼' },
         ].map((stat) => (
-          <div key={stat.label} className="py-5 text-center border-r border-slate-200 last:border-r-0">
+          <div key={stat.label} className="py-5 text-center border-r border-white/10 last:border-r-0">
             <div className="text-2xl mb-1">{stat.icon}</div>
-            <div className="text-slate-900 font-extrabold text-lg">{stat.value}</div>
-            <div className="text-slate-500 text-xs font-semibold">{stat.label}</div>
+            <div className="text-white font-extrabold text-lg">{stat.value}</div>
+            <div className="text-slate-400 text-xs font-semibold">{stat.label}</div>
           </div>
         ))}
       </div>
@@ -115,7 +115,7 @@ export default function LandingPage() {
       {/* Emergency hotline footer */}
       <div className="bg-primary/5 border-t border-primary/10 py-3 px-6 flex items-center justify-center gap-2 text-sm relative z-10">
         <Phone className="w-4 h-4 text-primary" />
-        <span className="text-slate-600 font-semibold">
+        <span className="text-slate-400 font-semibold">
           Child Helpline: <strong className="text-primary font-bold">1098</strong> &nbsp;|&nbsp; Emergency Operations: <strong className="text-primary font-bold">112</strong>
         </span>
       </div>

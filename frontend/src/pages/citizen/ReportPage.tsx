@@ -169,8 +169,8 @@ export default function ReportPage() {
           <AlertTriangle className="w-4 h-4" />
           EMERGENCY REPORT
         </div>
-        <h1 className="text-2xl font-bold text-slate-900">Report a Distressed Child</h1>
-        <p className="text-slate-500 text-sm mt-2">
+        <h1 className="text-2xl font-bold text-white font-serif">Report a Distressed Child</h1>
+        <p className="text-slate-400 text-sm mt-2 leading-relaxed">
           AI will instantly analyze the situation and alert nearby authorities.
         </p>
       </div>
@@ -183,7 +183,7 @@ export default function ReportPage() {
             className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
               ['capture', 'location', 'submitting', 'done'].indexOf(step) >= i
                 ? 'bg-primary'
-                : 'bg-slate-200'
+                : 'bg-white/10'
             }`}
           />
         ))}
@@ -193,15 +193,15 @@ export default function ReportPage() {
         {/* ── STEP 1: Camera ── */}
         {(step === 'capture' || photoPreview) && (
           <div>
-            <h2 className="text-slate-800 font-bold mb-3">
+            <h2 className="text-white font-bold mb-3">
               {step === 'capture' ? '📸 Step 1: Take a Photo' : '📸 Photo Captured'}
             </h2>
             {photoPreview ? (
-              <div className="relative rounded-2xl overflow-hidden border border-slate-200">
+              <div className="relative rounded-2xl overflow-hidden border border-white/10 shadow-lg">
                 <img src={photoPreview} alt="Evidence" className="w-full object-cover max-h-60" />
                 <button
                   onClick={() => { setPhoto(null); setPhotoPreview(''); setStep('capture') }}
-                  className="absolute top-3 right-3 bg-black/60 text-white text-xs px-3 py-1.5 rounded-full"
+                  className="absolute top-3 right-3 bg-black/75 hover:bg-black text-white text-xs px-3 py-1.5 rounded-full transition-colors"
                 >
                   Retake
                 </button>
@@ -210,9 +210,9 @@ export default function ReportPage() {
               <button
                 id="camera-btn"
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full h-44 rounded-2xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center gap-3 text-slate-400 hover:border-primary/60 hover:text-primary transition-all bg-white/60"
+                className="w-full h-44 rounded-2xl border-2 border-dashed border-white/20 flex flex-col items-center justify-center gap-3 text-slate-400 hover:border-primary/60 hover:text-primary transition-all bg-dark-700/40 cursor-pointer"
               >
-                <Camera className="w-10 h-10" />
+                <Camera className="w-10 h-10 text-slate-400" />
                 <span className="text-sm font-medium">Tap to open camera</span>
               </button>
             )}
@@ -230,33 +230,32 @@ export default function ReportPage() {
         {/* ── STEP 2: Location ── */}
         {(step === 'location' || step === 'submitting') && (
           <div>
-            <h2 className="text-slate-800 font-bold mb-3">📍 Step 2: Your Location</h2>
+            <h2 className="text-white font-bold mb-3">📍 Step 2: Your Location</h2>
             <button
               id="gps-btn"
               onClick={handleGetLocation}
-              className={`w-full flex items-center gap-3 p-4 rounded-xl border transition-all ${
+              className={`w-full flex items-center gap-3 p-4 rounded-xl border transition-all cursor-pointer ${
                 location
-                  ? 'border-green-400/60 bg-green-50 text-green-700'
-                  : 'border-slate-200 bg-white/70 backdrop-blur-md text-slate-600 hover:border-primary/50'
+                  ? 'border-green-500/30 bg-green-950/20 text-green-400'
+                  : 'border-white/10 bg-dark-700/40 text-slate-300 hover:border-primary/50'
               }`}
             >
               {location ? <CheckCircle className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
-              <span className="text-sm text-left">
+              <span className="text-sm text-left font-medium">
                 {location ? location.address : 'Tap to detect my location'}
               </span>
             </button>
 
             <div className="flex items-center gap-3 my-3">
-              <div className="flex-1 h-px bg-slate-200" />
-              <span className="text-slate-400 text-xs">or type it</span>
-              <div className="flex-1 h-px bg-slate-200" />
+              <div className="flex-1 h-px bg-white/10" />
+              <span className="text-slate-500 text-xs font-semibold">or type it</span>
+              <div className="flex-1 h-px bg-white/10" />
             </div>
 
             <div className="relative">
               <input
-                id="address-input"
                 type="text"
-                placeholder="Type any address in India..."
+                placeholder="Type location address..."
                 value={manualAddress}
                 onChange={(e) => {
                   handleAddressChange(e.target.value)
@@ -268,7 +267,7 @@ export default function ReportPage() {
               />
               
               {showSuggestions && suggestions.length > 0 && (
-                <div className="absolute left-0 right-0 mt-1.5 bg-white/95 border border-slate-200 rounded-xl overflow-hidden shadow-xl z-20 backdrop-blur-lg max-h-48 overflow-y-auto">
+                <div className="absolute left-0 right-0 mt-1.5 bg-dark-800/95 border border-white/10 rounded-xl overflow-hidden shadow-2xl z-20 backdrop-blur-lg max-h-48 overflow-y-auto">
                   {suggestions.map((loc) => (
                     <button
                       key={loc.address}
@@ -278,10 +277,10 @@ export default function ReportPage() {
                         setLocation({ lat: loc.lat, lng: loc.lng, address: loc.address })
                         setShowSuggestions(false)
                       }}
-                      className="w-full text-left px-4 py-3 hover:bg-slate-50 text-sm text-slate-700 hover:text-slate-900 border-b border-slate-100 last:border-0 flex items-center gap-2.5 transition-colors"
+                      className="w-full text-left px-4 py-3 hover:bg-dark-700/80 text-sm text-slate-300 hover:text-white border-b border-white/5 last:border-0 flex items-center gap-2.5 transition-colors cursor-pointer"
                     >
                       <MapPin className="w-4 h-4 text-primary" />
-                      <span>{loc.address}</span>
+                      <span className="truncate">{loc.address}</span>
                     </button>
                   ))}
                 </div>
@@ -292,7 +291,7 @@ export default function ReportPage() {
 
         {/* Error */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-red-600 text-sm font-medium">
+          <div className="bg-red-950/40 border border-red-500/30 rounded-xl p-3 text-red-400 text-sm font-medium">
             {error}
           </div>
         )}
@@ -303,7 +302,7 @@ export default function ReportPage() {
             id="submit-report-btn"
             onClick={handleSubmit}
             disabled={!photo || (!location && !manualAddress)}
-            className="btn-primary py-4 text-lg flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed mt-auto"
+            className="btn-primary py-4 text-lg flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed mt-auto cursor-pointer"
           >
             <AlertTriangle className="w-5 h-5" />
             Report Emergency Now
@@ -314,8 +313,8 @@ export default function ReportPage() {
         {step === 'submitting' && (
           <div className="text-center py-8">
             <Loader className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
-            <p className="text-slate-800 font-semibold">AI is analyzing the situation...</p>
-            <p className="text-slate-500 text-sm mt-2">Alerting nearby authorities</p>
+            <p className="text-white font-bold">AI is analyzing the situation...</p>
+            <p className="text-slate-400 text-sm mt-2">Alerting nearby authorities</p>
           </div>
         )}
       </div>

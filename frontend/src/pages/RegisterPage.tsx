@@ -50,60 +50,60 @@ export default function RegisterPage() {
     <div className="min-h-screen flex items-center justify-center px-6 py-12 relative overflow-hidden bg-transparent">
       <div className="w-full max-w-sm relative z-10">
         
-        <div className="bg-white/80 backdrop-blur-2xl border border-slate-200/80 rounded-3xl p-10 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.08)]">
+        <div className="card-glass p-10">
           {/* Logo */}
           <div className="text-center mb-8">
             <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-5 shadow-[0_4px_16px_rgba(37,99,235,0.12)]">
               <Shield className="w-8 h-8 text-primary" />
             </div>
-            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Create Account</h1>
-            <p className="text-slate-500 text-sm mt-1.5 font-medium">Register as an authority or admin</p>
+            <h1 className="text-2xl font-extrabold text-white tracking-tight">Create Account</h1>
+            <p className="text-slate-400 text-sm mt-1.5 font-medium">Register as an authority or admin</p>
           </div>
 
           <form onSubmit={handleRegister} className="space-y-5">
             <div>
-              <label className="text-slate-600 text-sm font-semibold block mb-2">Full Name</label>
+              <label className="text-slate-300 text-sm font-semibold block mb-2">Full Name</label>
               <div className="relative">
-                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <input
                   id="name-input"
                   type="text"
                   placeholder="John Doe"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="input-glass pl-10 text-slate-900 placeholder-slate-400"
+                  className="input-glass pl-10 text-white placeholder-slate-500"
                   required
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-slate-600 text-sm font-semibold block mb-2">Email</label>
+              <label className="text-slate-300 text-sm font-semibold block mb-2">Email</label>
               <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <input
                   id="email-input"
                   type="email"
                   placeholder="your@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="input-glass pl-10 text-slate-900 placeholder-slate-400"
+                  className="input-glass pl-10 text-white placeholder-slate-500"
                   required
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-slate-600 text-sm font-semibold block mb-2">Password</label>
+              <label className="text-slate-300 text-sm font-semibold block mb-2">Password</label>
               <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <input
                   id="password-input"
                   type="password"
                   placeholder="Min 6 characters"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="input-glass pl-10 text-slate-900 placeholder-slate-400"
+                  className="input-glass pl-10 text-white placeholder-slate-500"
                   required
                   minLength={6}
                 />
@@ -111,21 +111,21 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label className="text-slate-600 text-sm font-semibold block mb-2">Role</label>
+              <label className="text-slate-300 text-sm font-semibold block mb-2">Role</label>
               <select
                 id="role-select"
                 value={role}
                 onChange={(e) => setRole(e.target.value as 'citizen' | 'authority' | 'admin')}
-                className="input-glass text-slate-900"
+                className="input-glass text-white"
               >
-                <option value="citizen">Citizen (Report emergency &amp; track)</option>
-                <option value="authority">Authority (Police / Hospital / NGO)</option>
-                <option value="admin">Admin</option>
+                <option value="citizen" className="text-slate-900">Citizen (Report emergency &amp; track)</option>
+                <option value="authority" className="text-slate-900">Authority (Police / Hospital / NGO)</option>
+                <option value="admin" className="text-slate-900">Admin</option>
               </select>
             </div>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-red-600 text-sm font-medium">
+              <div className="bg-red-950/40 border border-red-500/30 rounded-xl p-3 text-red-400 text-sm font-medium">
                 {error}
               </div>
             )}
@@ -140,9 +140,9 @@ export default function RegisterPage() {
             </button>
           </form>
 
-          <p className="text-center text-slate-500 text-sm mt-7">
+          <p className="text-center text-slate-400 text-sm mt-7">
             Already have an account?{' '}
-            <Link to="/login" className="text-primary hover:text-indigo-700 font-bold transition-colors">
+            <Link to="/login" className="text-primary hover:text-red-400 font-bold transition-colors">
               Sign in
             </Link>
           </p>
