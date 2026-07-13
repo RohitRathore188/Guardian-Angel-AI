@@ -15,8 +15,8 @@ export class MockSupabaseQueryBuilder<T = any> implements PromiseLike<{ data: T 
       defaultData = [
         {
           id: 'mock-user-123',
-          full_name: this.currentRole === 'admin' ? 'Demo Admin' : 'Demo Authority',
-          role: this.currentRole === 'admin' ? 'admin' : 'police',
+          full_name: this.currentRole === 'admin' ? 'Demo Admin' : this.currentRole === 'citizen' ? 'Demo Citizen' : 'Demo Authority',
+          role: this.currentRole === 'admin' ? 'admin' : this.currentRole === 'citizen' ? 'citizen' : 'police',
           created_at: new Date().toISOString()
         },
         {
@@ -39,8 +39,8 @@ export class MockSupabaseQueryBuilder<T = any> implements PromiseLike<{ data: T 
     if (this.table === 'profiles' && column === 'id') {
       const userProfile = {
         id: value,
-        full_name: this.currentRole === 'admin' ? 'Demo Admin' : 'Demo Authority',
-        role: this.currentRole === 'admin' ? 'admin' : 'police',
+        full_name: this.currentRole === 'admin' ? 'Demo Admin' : this.currentRole === 'citizen' ? 'Demo Citizen' : 'Demo Authority',
+        role: this.currentRole === 'admin' ? 'admin' : this.currentRole === 'citizen' ? 'citizen' : 'police',
         created_at: new Date().toISOString()
       };
       this.dataPromise = Promise.resolve({ data: userProfile, error: null });
@@ -109,7 +109,13 @@ export class MockSupabaseAuth {
 
   public async signInWithPassword(credentials: any): Promise<{ data: { user: any; session: any }; error: any }> {
     const email = credentials.email || 'user@example.com';
-    this.currentRole = email.toLowerCase().includes('admin') ? 'admin' : 'authority';
+    if (email.toLowerCase().includes('admin')) {
+      this.currentRole = 'admin';
+    } else if (email.toLowerCase().includes('citizen')) {
+      this.currentRole = 'citizen';
+    } else {
+      this.currentRole = 'authority';
+    }
     const dummyUser = { id: 'mock-user-123', email };
     const dummySession = { access_token: 'mock-token', user: dummyUser };
     this.session = dummySession;
@@ -120,7 +126,16 @@ export class MockSupabaseAuth {
 
   public async signUp(credentials: any): Promise<{ data: { user: any; session: any }; error: any }> {
     const email = credentials.email || 'user@example.com';
-    this.currentRole = email.toLowerCase().includes('admin') ? 'admin' : 'authority';
+    const metadataRole = credentials.options?.data?.role;
+    if (metadataRole === 'citizen') {
+      this.currentRole = 'citizen';
+    } else if (metadataRole === 'admin') {
+      this.currentRole = 'admin';
+    } else if (metadataRole) {
+      this.currentRole = 'authority';
+    } else {
+      this.currentRole = email.toLowerCase().includes('admin') ? 'admin' : email.toLowerCase().includes('citizen') ? 'citizen' : 'authority';
+    }
     const dummyUser = { id: 'mock-user-123', email };
     const dummySession = { access_token: 'mock-token', user: dummyUser };
     this.session = dummySession;

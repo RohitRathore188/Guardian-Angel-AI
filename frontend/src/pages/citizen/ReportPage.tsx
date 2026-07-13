@@ -162,7 +162,7 @@ export default function ReportPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col max-w-md mx-auto relative overflow-hidden bg-transparent">
+    <div className="min-h-screen flex flex-col max-w-2xl mx-auto w-full relative overflow-hidden bg-transparent px-5 py-6">
       {/* Header */}
       <div className="px-6 pt-12 pb-6">
         <div className="flex items-center gap-2 text-primary text-sm font-semibold mb-4">
