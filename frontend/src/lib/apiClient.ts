@@ -1,8 +1,14 @@
 import axios from 'axios'
 import { supabase } from './supabaseClient'
 
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
+
+if (!apiBaseUrl) {
+  console.warn('VITE_API_BASE_URL environment variable is missing!')
+}
+
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001',
+  baseURL: apiBaseUrl || (typeof window !== 'undefined' ? window.location.origin : ''),
 })
 
 // Attach Supabase JWT to every request automatically

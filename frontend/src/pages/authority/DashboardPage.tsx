@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import LiveMap from '../../components/LiveMap'
 import { Case, mockCases } from '../../lib/mockData'
-import { supabase } from '../../lib/supabaseClient'
+import { supabase, IS_MOCK_MODE } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthContext'
 import apiClient from '../../lib/apiClient'
 import { 
@@ -422,6 +422,11 @@ export default function DashboardPage() {
 
   // Supabase Realtime subscription
   useEffect(() => {
+    if (IS_MOCK_MODE) {
+      console.log('Realtime subscriptions disabled in Mock Mode.')
+      return
+    }
+
     if (typeof window !== 'undefined' && 'Notification' in window) {
       if (Notification.permission === 'default') {
         Notification.requestPermission();

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { Send, Shield, Phone, MapPin, Compass, AlertTriangle, CheckCircle, Bell, FileText, MessageSquare, List, CloudRain, Info, Navigation, Zap, Cpu, Search, Filter, Play, Pause, RotateCcw, BarChart2, ArrowRight } from 'lucide-react'
 import apiClient from '../../lib/apiClient'
-import { supabase } from '../../lib/supabaseClient'
+import { supabase, IS_MOCK_MODE } from '../../lib/supabaseClient'
 import { Case, mockCases } from '../../lib/mockData'
 import LiveMap, { generateMockResponders } from '../../components/LiveMap'
 import SeverityBadge from '../../components/SeverityBadge'
@@ -259,7 +259,7 @@ export default function CompanionPage() {
     fetchCaseDetails()
     loadCitizenReports()
 
-    if (!caseId.startsWith('mock-')) {
+    if (!IS_MOCK_MODE && !caseId.startsWith('mock-')) {
       const channel = supabase
         .channel(`case-tracking-${caseId}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'reports', filter: `id=eq.${caseId}` }, () => {
