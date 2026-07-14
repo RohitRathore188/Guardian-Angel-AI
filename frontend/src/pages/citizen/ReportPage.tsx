@@ -120,10 +120,31 @@ export default function ReportPage() {
       const imageUrl = urlData.publicUrl
 
       // 2) Final location object
-      const finalLocation = location ?? {
-        lat: 0,
-        lng: 0,
-        address: manualAddress,
+      let finalLocation = location
+      if (!finalLocation && manualAddress) {
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(manualAddress)}&countrycodes=in&limit=1`
+          )
+          const data = await res.json()
+          if (data && data.length > 0) {
+            finalLocation = {
+              lat: parseFloat(data[0].lat),
+              lng: parseFloat(data[0].lon),
+              address: manualAddress,
+            }
+          }
+        } catch (err) {
+          console.warn('Fallback geocoding on submit failed:', err)
+        }
+      }
+
+      if (!finalLocation) {
+        finalLocation = {
+          lat: 13.0827,
+          lng: 80.2707,
+          address: manualAddress || 'Chennai, India',
+        }
       }
 
       // 3) Call backend — triggers AI pipeline

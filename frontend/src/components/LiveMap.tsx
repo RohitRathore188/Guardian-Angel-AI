@@ -225,6 +225,19 @@ export default function LiveMap({
     }
   }, [selectedCase])
 
+  // Fit map bounds to show all active cases on load
+  useEffect(() => {
+    if (cases.length > 0) {
+      const activeCoords = cases
+        .filter((c) => c.location && c.location.lat !== 0)
+        .map((c) => [c.location.lat, c.location.lng] as [number, number])
+      if (activeCoords.length > 0) {
+        setBoundsList(activeCoords)
+        setFitBoundsTrigger((prev) => prev + 1)
+      }
+    }
+  }, [cases])
+
   const defaultCenter: [number, number] = cases.length > 0
     ? [cases[0].location.lat, cases[0].location.lng]
     : [13.0827, 80.2707] // Chennai fallback coordinates
