@@ -151,6 +151,21 @@ export default function EmergencyCommandDrawer({
                 <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Status</span>
                 <span className="text-white font-extrabold text-xs uppercase tracking-widest">{selectedCase.status}</span>
               </div>
+              <div className="space-y-1 text-center">
+                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Threat Index</span>
+                {(() => {
+                  const score = selectedCase.ai_severity === 'critical' ? 88
+                    : selectedCase.ai_severity === 'high' ? 62
+                    : 34
+                  const color = score >= 80 ? 'text-red-400' : score >= 60 ? 'text-orange-400' : 'text-yellow-400'
+                  return (
+                    <div className="flex items-center gap-1.5">
+                      <span className={`font-black text-sm ${color}`}>{score}</span>
+                      <span className="text-[8px] text-slate-500">/100</span>
+                    </div>
+                  )
+                })()}
+              </div>
               <div className="space-y-1 text-right">
                 <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">AI Confidence</span>
                 <span className="text-primary font-black text-xs">94.2%</span>
