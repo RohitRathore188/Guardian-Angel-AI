@@ -156,6 +156,7 @@ const gisIcons = {
   Shelter: createPremiumIcon('#f5a623', '⛺', 'gis-pulse-orange'),
   ChildWelfare: createPremiumIcon('#8b5cf6', '🏢', 'gis-pulse-purple'),
   AI: createPremiumIcon('#8b5cf6', '🧠', 'gis-pulse-purple'),
+  Drone: createPremiumIcon('#a855f7', '🛸', 'gis-pulse-purple'),
 }
 
 // Flyer Map Controller
@@ -212,6 +213,7 @@ export default function LiveMap({
   const [selectedRadius, setSelectedRadius] = useState<number>(mapConfig.defaultRadius)
   const [toggleRadius, setToggleRadius] = useState<boolean>(mapConfig.showControls.radiusToggle)
   const [toggleRoutes, setToggleRoutes] = useState<boolean>(true)
+  const [toggleDrone, setToggleDrone] = useState<boolean>(true)
   const [mapStyle, setMapStyle] = useState<'dark' | 'streets' | 'satellite'>('dark')
   const [centerTarget, setCenterTarget] = useState<[number, number] | null>(null)
   const [boundsList, setBoundsList] = useState<[number, number][] | null>(null)
@@ -509,6 +511,9 @@ export default function LiveMap({
         .route-volunteer {
           filter: drop-shadow(0 0 5px #39ff14);
         }
+        .route-drone {
+          filter: drop-shadow(0 0 5px #a855f7);
+        }
       `}</style>
 
       {/* Top-Left Location Search Overlay */}
@@ -604,6 +609,16 @@ export default function LiveMap({
           />
         </div>
 
+        <div className="flex justify-between items-center">
+          <span>Show Drones</span>
+          <input
+            type="checkbox"
+            checked={toggleDrone}
+            onChange={(e) => setToggleDrone(e.target.checked)}
+            className="accent-primary"
+          />
+        </div>
+
         <button
           onClick={handleCenterOnChild}
           className="w-full text-center py-1.5 bg-dark-800 border border-white/5 hover:border-primary/20 rounded font-semibold text-slate-300 hover:text-white transition-all mt-1"
@@ -644,16 +659,44 @@ export default function LiveMap({
         {/* Heatmap overlay */}
         {(showHeatmap || mapConfig.visibleLayers.includes('heatmap')) &&
           cases.map((c) => (
-            <Circle
-              key={`heat-${c.id}`}
-              center={[c.location.lat, c.location.lng]}
-              radius={c.ai_severity === 'critical' ? 900 : 500}
-              pathOptions={{
-                fillColor: '#ef4444',
-                fillOpacity: 0.12,
-                color: 'transparent',
-              }}
-            />
+            <span key={`heat-${c.id}`}>
+              {/* Core - High Intensity Red */}
+              <Circle
+                center={[c.location.lat, c.location.lng]}
+                radius={800}
+                pathOptions={{
+                  fillColor: '#ef4444',
+                  fillOpacity: 0.35,
+                  color: '#ef4444',
+                  opacity: 0.2,
+                  weight: 1,
+                }}
+              />
+              {/* Mid Ring - Medium Intensity Orange */}
+              <Circle
+                center={[c.location.lat, c.location.lng]}
+                radius={1800}
+                pathOptions={{
+                  fillColor: '#f97316',
+                  fillOpacity: 0.18,
+                  color: 'transparent',
+                  weight: 0,
+                }}
+              />
+              {/* Outer Halo - Low Intensity Yellow with pulse */}
+              <Circle
+                center={[c.location.lat, c.location.lng]}
+                radius={3200}
+                pathOptions={{
+                  fillColor: '#eab308',
+                  fillOpacity: 0.08,
+                  color: '#eab308',
+                  opacity: 0.05,
+                  weight: 1,
+                  className: 'new-case-highlight-pulse'
+                }}
+              />
+            </span>
           ))}
 
         {/* Search boundaries overlay */}
@@ -824,6 +867,38 @@ export default function LiveMap({
                     })()}
                   </>
                 )}
+                {toggleDrone && (
+                  (() => {
+                    const droneBase: [number, number] = [
+                      selectedCase.location.lat + 0.012,
+                      selectedCase.location.lng - 0.015
+                    ];
+                    const droneRoute: [number, number][] = [
+                      droneBase,
+                      [selectedCase.location.lat, selectedCase.location.lng]
+                    ];
+                    const dronePos = getProgressCoordinate(droneRoute, (routeProgress + 20) % 100);
+                    return (
+                      <>
+                        <Polyline 
+                          positions={droneRoute} 
+                          pathOptions={{ color: '#a855f7', weight: 3, className: 'animated-route-line route-drone' }} 
+                        />
+                        {dronePos && (
+                          <Marker position={dronePos} icon={gisIcons.Drone}>
+                            <Popup>
+                              <div className="text-[10px] bg-dark-950 text-white p-2 rounded border border-white/10">
+                                <p className="font-bold text-purple-400">🛸 RESCUE DRONE ACTIVE</p>
+                                <p className="text-[8.5px] text-slate-400 mt-1">Status: Scanning Flight Path</p>
+                                <p className="text-[8.5px] text-slate-400">FLIR Sensor: Enabled</p>
+                              </div>
+                            </Popup>
+                          </Marker>
+                        )}
+                      </>
+                    );
+                  })()
+                )}
               </>
             )}
           </>
@@ -885,6 +960,38 @@ export default function LiveMap({
                           </div>
                         </Popup>
                       </Marker>
+                    )}
+                    {toggleDrone && (
+                      (() => {
+                        const droneBase: [number, number] = [
+                          c.location.lat + 0.012,
+                          c.location.lng - 0.015
+                        ];
+                        const droneRoute: [number, number][] = [
+                          droneBase,
+                          [c.location.lat, c.location.lng]
+                        ];
+                        const dronePos = getProgressCoordinate(droneRoute, (routeProgress + 20) % 100);
+                        return (
+                          <>
+                            <Polyline 
+                              positions={droneRoute} 
+                              pathOptions={{ color: '#a855f7', weight: 2.5, className: 'animated-route-line route-drone' }} 
+                            />
+                            {dronePos && (
+                              <Marker position={dronePos} icon={gisIcons.Drone}>
+                                <Popup>
+                                  <div className="text-[10px] bg-dark-950 text-white p-2 rounded border border-white/10">
+                                    <p className="font-bold text-purple-400">🛸 AERIAL RESCUE DRONE</p>
+                                    <p className="text-[8.5px] text-slate-400 mt-1">Responding to Case #{c.id.slice(0, 8)}</p>
+                                    <p className="text-[8.5px] text-slate-400">Mission: Thermal Scanning Area</p>
+                                  </div>
+                                </Popup>
+                              </Marker>
+                            )}
+                          </>
+                        );
+                      })()
                     )}
                   </>
                 )}

@@ -80,6 +80,21 @@ export default function CompanionPage() {
   const [nearbyAgencies, setNearbyAgencies] = useState<any[]>(mockAgencies)
   const [loadingAgencies, setLoadingAgencies] = useState<boolean>(false)
 
+  // ── Drone Telemetry States ──
+  const [droneBattery, setDroneBattery] = useState(94)
+  const [droneAltitude, setDroneAltitude] = useState(115)
+  const [droneSpeed, setDroneSpeed] = useState(58)
+
+  useEffect(() => {
+    if (activeTab !== 'tracking') return
+    const interval = setInterval(() => {
+      setDroneBattery((prev) => Math.max(12, prev - (Math.random() > 0.7 ? 1 : 0)))
+      setDroneAltitude((prev) => Math.min(130, Math.max(105, prev + Math.floor(Math.random() * 3) - 1)))
+      setDroneSpeed((prev) => Math.min(65, Math.max(52, prev + Math.floor(Math.random() * 5) - 2)))
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [activeTab])
+
   const bottomRef = useRef<HTMLDivElement>(null)
 
   // Format seconds to MM:SS countdown format
@@ -1382,6 +1397,81 @@ TIMESTAMP:    ${new Date().toLocaleString()}
                         <span className="text-[8px] text-slate-550 shrink-0">{log.time}</span>
                       </div>
                     ))}
+                  </div>
+                </div>
+
+                <div className="card p-4 border border-white/10 space-y-3 bg-dark-900/40">
+                  <style>{`
+                    @keyframes radar-scan {
+                      0% { transform: translateY(-40px); }
+                      100% { transform: translateY(180px); }
+                    }
+                  `}</style>
+                  <h4 className="text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2">
+                    <Compass className="w-3.5 h-3.5 text-purple-400 animate-spin" style={{ animationDuration: '6s' }} />
+                    Rescue Drone Teledata
+                  </h4>
+
+                  {/* Telemetry Stats Grid */}
+                  <div className="grid grid-cols-2 gap-2 text-[10px]">
+                    <div className="bg-dark-950/60 p-2 rounded-lg border border-white/5 flex flex-col">
+                      <span className="text-[8px] text-slate-500 font-bold uppercase">Battery Charge</span>
+                      <span className="text-white font-black mt-0.5 flex items-center gap-1">
+                        <span className={droneBattery > 25 ? "text-emerald-400" : "text-red-500 animate-pulse"}>
+                          🔋 {droneBattery}%
+                        </span>
+                      </span>
+                    </div>
+                    <div className="bg-dark-950/60 p-2 rounded-lg border border-white/5 flex flex-col">
+                      <span className="text-[8px] text-slate-500 font-bold uppercase">Flight Altitude</span>
+                      <span className="text-white font-black mt-0.5">📐 {droneAltitude}m AGL</span>
+                    </div>
+                    <div className="bg-dark-950/60 p-2 rounded-lg border border-white/5 flex flex-col">
+                      <span className="text-[8px] text-slate-500 font-bold uppercase">Air Speed</span>
+                      <span className="text-white font-black mt-0.5">⚡ {droneSpeed} km/h</span>
+                    </div>
+                    <div className="bg-dark-950/60 p-2 rounded-lg border border-white/5 flex flex-col">
+                      <span className="text-[8px] text-slate-500 font-bold uppercase">FLIR Thermal Sensor</span>
+                      <span className="text-emerald-400 font-black mt-0.5 flex items-center gap-1 animate-pulse">
+                        🟢 ACTIVE
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Thermal Video Feed Simulator Screen */}
+                  <div className="relative aspect-video rounded-lg overflow-hidden border border-white/5 bg-slate-950 shadow-inner group h-[140px]">
+                    {/* Thermal Camera Simulator View */}
+                    <div className="absolute inset-0 bg-radial-gradient flex items-center justify-center pointer-events-none">
+                      {/* Grid overlays */}
+                      <div className="absolute inset-0 bg-[linear-gradient(rgba(18,24,38,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(18,24,38,0.1)_1px,transparent_1px)] bg-[size:10px_10px] opacity-20" />
+                      
+                      {/* Horizontal/Vertical Crosshair lines */}
+                      <div className="absolute left-1/2 top-0 bottom-0 w-[0.5px] bg-emerald-500/20" />
+                      <div className="absolute top-1/2 left-0 right-0 h-[0.5px] bg-emerald-500/20" />
+
+                      {/* Moving radar scanning sweeping bar */}
+                      <div className="absolute left-0 right-0 h-10 bg-gradient-to-b from-transparent via-emerald-500/10 to-transparent top-0 pointer-events-none" style={{ animation: 'radar-scan 3s linear infinite' }} />
+
+                      {/* Pulsing thermal signature of the child beacon */}
+                      <div className="absolute w-8 h-8 rounded-full bg-red-500/30 border border-red-500 animate-ping opacity-75" />
+                      <div className="absolute w-3 h-3 rounded-full bg-yellow-400 border border-red-500 shadow-[0_0_10px_#ef4444] animate-pulse flex items-center justify-center">
+                        <div className="w-1 h-1 bg-white rounded-full" />
+                      </div>
+
+                      {/* Video Feed HUD Text Overlay */}
+                      <div className="absolute top-2 left-2 text-[7.5px] font-mono text-emerald-400/80 leading-none">
+                        <p>FLIR INFRARED FEED 1</p>
+                        <p className="mt-1">ZOOM: 4.0X | FOV: 15°</p>
+                      </div>
+                      <div className="absolute top-2 right-2 text-[7.5px] font-mono text-emerald-400/80 text-right leading-none">
+                        <p>BEACON LOCKED</p>
+                        <p className="text-red-400 mt-1">HEAT SIGNATURE DETECTED</p>
+                      </div>
+                      <div className="absolute bottom-2 left-2 text-[7.5px] font-mono text-emerald-400/80 leading-none">
+                        <p>FPS: 30.0 | TEMP: 36.8°C</p>
+                        <p className="mt-1">COORDS: {currentCase.location.lat.toFixed(4)}N, {currentCase.location.lng.toFixed(4)}E</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
