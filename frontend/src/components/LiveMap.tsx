@@ -463,6 +463,34 @@ export default function LiveMap({
         @keyframes route-dash {
           to { stroke-dashoffset: -20; }
         }
+        
+        /* Premium GIS map contrast filters */
+        .leaflet-tile-container {
+          filter: brightness(0.7) contrast(1.25) saturate(1.15) hue-rotate(5deg);
+        }
+
+        /* Vignette overlay styling */
+        .map-vignette {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.9);
+          pointer-events: none;
+          z-index: 999;
+        }
+
+        /* Neon routes glow styling */
+        .route-hospital {
+          filter: drop-shadow(0 0 5px #00f0ff);
+        }
+        .route-police {
+          filter: drop-shadow(0 0 5px #ff0055);
+        }
+        .route-volunteer {
+          filter: drop-shadow(0 0 5px #39ff14);
+        }
       `}</style>
 
       {/* Top-Left Location Search Overlay */}
@@ -570,6 +598,9 @@ export default function LiveMap({
           Fit Assets View
         </button>
       </div>
+
+      {/* Vignette Overlay */}
+      <div className="map-vignette" />
 
       <MapContainer
         center={defaultCenter}
@@ -717,13 +748,13 @@ export default function LiveMap({
             {toggleRoutes && mapConfig.visibleLayers.includes('routes') && (
               <>
                 {nearestHospital && hospitalRoute.length > 0 && (
-                  <Polyline positions={hospitalRoute} pathOptions={{ color: '#3b82f6', weight: 3.5, className: 'animated-route-line' }} />
+                  <Polyline positions={hospitalRoute} pathOptions={{ color: '#3b82f6', weight: 3.5, className: 'animated-route-line route-hospital' }} />
                 )}
                 {nearestPolice && policeRoute.length > 0 && (
-                  <Polyline positions={policeRoute} pathOptions={{ color: '#ef4444', weight: 3.5, className: 'animated-route-line' }} />
+                  <Polyline positions={policeRoute} pathOptions={{ color: '#ef4444', weight: 3.5, className: 'animated-route-line route-police' }} />
                 )}
                 {nearestVolunteer && volunteerRoute.length > 0 && (
-                  <Polyline positions={volunteerRoute} pathOptions={{ color: '#10b981', weight: 3.5, className: 'animated-route-line' }} />
+                  <Polyline positions={volunteerRoute} pathOptions={{ color: '#10b981', weight: 3.5, className: 'animated-route-line route-volunteer' }} />
                 )}
               </>
             )}
