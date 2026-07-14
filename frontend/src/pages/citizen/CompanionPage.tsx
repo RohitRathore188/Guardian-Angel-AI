@@ -7,6 +7,7 @@ import { Case, mockCases } from '../../lib/mockData'
 import LiveMap, { generateMockResponders } from '../../components/LiveMap'
 import SeverityBadge from '../../components/SeverityBadge'
 import { useNotifications } from '../../context/NotificationContext'
+import LiveChatDrawer from '../../components/LiveChatDrawer'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -79,6 +80,9 @@ export default function CompanionPage() {
   const [voiceState, setVoiceState] = useState<'idle' | 'playing' | 'paused' | 'muted'>('idle')
   const [nearbyAgencies, setNearbyAgencies] = useState<any[]>(mockAgencies)
   const [loadingAgencies, setLoadingAgencies] = useState<boolean>(false)
+
+  // ── Live Chat Drawer ──
+  const [chatOpen, setChatOpen] = useState(false)
 
   // ── Drone Telemetry States ──
   const [droneBattery, setDroneBattery] = useState(94)
@@ -789,6 +793,7 @@ TIMESTAMP:    ${new Date().toLocaleString()}
   const checklistPercent = Math.round((checklistCheckedCount / 6) * 100)
 
   return (
+    <>
     <div className="min-h-screen bg-white/30 flex flex-col relative overflow-hidden w-full">
       {/* ── Fixed Critical Emergency Banner ── */}
       {hasCriticalCase && (
@@ -2108,5 +2113,33 @@ TIMESTAMP:    ${new Date().toLocaleString()}
         </>
       )}
     </div>
+
+      {/* ── Floating Live Chat Button ───────────────────────────────────── */}
+      {activeTab === 'tracking' && currentCase && !chatOpen && (
+        <button
+          id="open-live-chat-btn"
+          onClick={() => setChatOpen(true)}
+          className="fixed bottom-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-2xl text-white text-[12px] font-bold shadow-lg transition-all hover:scale-105"
+          style={{
+            background: 'linear-gradient(135deg, #1d4ed8, #4f46e5)',
+            boxShadow: '0 4px 24px rgba(37,99,235,0.5), 0 0 0 1px rgba(255,255,255,0.08)'
+          }}
+        >
+          <MessageSquare className="w-4 h-4" />
+          Live Chat with Authority
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-1" />
+        </button>
+      )}
+
+      {/* ── Live Chat Drawer ────────────────────────────────────────────── */}
+      {chatOpen && currentCase && (
+        <LiveChatDrawer
+          caseId={currentCase.id}
+          senderRole="citizen"
+          senderName="Reporter"
+          onClose={() => setChatOpen(false)}
+        />
+      )}
+    </>
   )
 }

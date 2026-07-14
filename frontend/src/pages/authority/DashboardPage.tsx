@@ -20,6 +20,8 @@ import AiDashboard from '../../components/AiDashboard'
 import { getAnalytics } from '../../config/analytics'
 import { globalEventBus } from '../../core/events/eventBus'
 import { initEventLogger } from '../../core/events/eventLogger'
+import LiveChatDrawer from '../../components/LiveChatDrawer'
+import { MessageSquare } from 'lucide-react'
 
 interface MockUser {
   id: string
@@ -92,6 +94,7 @@ export default function DashboardPage() {
 
   const [cases, setCases] = useState<Case[]>(generateDemoCases())
   const [selectedCase, setSelectedCase] = useState<Case | null>(null)
+  const [authChatOpen, setAuthChatOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('Dashboard')
   const [analyticsSubTab, setAnalyticsSubTab] = useState<'ops' | 'ai'>('ops')
   const showHeatmap = false
@@ -1181,6 +1184,33 @@ TIMESTAMP:    ${new Date().toLocaleString()}
           activeDispatches={activeDispatches}
           startDispatchAnimation={startDispatchAnimation}
           logAction={logAction}
+        />
+      )}
+
+      {/* ── Authority Floating Live Chat Button ──────────────────────── */}
+      {selectedCase && !authChatOpen && (
+        <button
+          id="authority-live-chat-btn"
+          onClick={() => setAuthChatOpen(true)}
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-2xl text-white text-[12px] font-bold shadow-xl transition-all hover:scale-105"
+          style={{
+            background: 'linear-gradient(135deg, #7c3aed, #2563eb)',
+            boxShadow: '0 4px 28px rgba(124,58,237,0.5), 0 0 0 1px rgba(255,255,255,0.08)'
+          }}
+        >
+          <MessageSquare className="w-4 h-4" />
+          Chat with Citizen
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-1" />
+        </button>
+      )}
+
+      {/* ── Authority Live Chat Drawer ──────────────────────────────── */}
+      {authChatOpen && selectedCase && (
+        <LiveChatDrawer
+          caseId={selectedCase.id}
+          senderRole="authority"
+          senderName={profile?.name || 'Authority'}
+          onClose={() => setAuthChatOpen(false)}
         />
       )}
     </div>
