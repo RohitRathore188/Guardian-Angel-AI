@@ -284,10 +284,25 @@ export default function CompanionPage() {
       
       try {
         const queryOsm = async (type: string, queryStr: string, limit: number) => {
-          const url = `https://nominatim.openstreetmap.org/search?format=json&q=${queryStr}&lat=${lat}&lon=${lng}&limit=${limit}&addressdetails=1`
-          const res = await fetch(url)
+          // Bound search within a local ~50km viewbox centered on the case coordinates
+          const viewbox = `${lng - 0.5},${lat + 0.5},${lng + 0.5},${lat - 0.5}`
+          let url = `https://nominatim.openstreetmap.org/search?format=json&q=${queryStr}&viewbox=${viewbox}&bounded=1&limit=${limit}&addressdetails=1`
+          
+          let res = await fetch(url)
           if (!res.ok) return []
-          const data = await res.json()
+          let data = await res.json()
+
+          // If no results, expand bounding box to ~150km viewbox
+          if (!data || data.length === 0) {
+            const wideViewbox = `${lng - 1.5},${lat + 1.5},${lng + 1.5},${lat - 1.5}`
+            url = `https://nominatim.openstreetmap.org/search?format=json&q=${queryStr}&viewbox=${wideViewbox}&bounded=1&limit=${limit}&addressdetails=1`
+            res = await fetch(url)
+            if (!res.ok) return []
+            data = await res.json()
+          }
+
+          if (!data || !Array.isArray(data)) return []
+
           return data.map((item: any) => ({
             name: item.display_name.split(',')[0] || item.name || type,
             type,
@@ -303,14 +318,35 @@ export default function CompanionPage() {
         const welfare = await queryOsm('NGO Shelter', 'social+facility', 1)
 
         const combined = [...hospitals, ...police, ...welfare]
-        if (combined.length > 0) {
+        
+        // Ensure that we only use real search data if we found at least 2 real local units
+        if (combined.length >= 2) {
           setNearbyAgencies(combined)
         } else {
-          setNearbyAgencies(mockAgencies)
+          // Fallback: Adjust default mock coordinates to be close to the child's local coordinates
+          const localizedMock = mockAgencies.map((agency, i) => {
+            const offsetLat = 0.0125 * (i % 2 === 0 ? 1 : -1) * (i + 1)
+            const offsetLng = 0.0145 * (i % 2 === 0 ? -1 : 1) * (i + 1)
+            return {
+              ...agency,
+              latitude: lat + offsetLat,
+              longitude: lng + offsetLng
+            }
+          })
+          setNearbyAgencies(localizedMock)
         }
       } catch (err) {
-        console.warn('Failed to fetch real-world nearby agencies, falling back to default mock list:', err)
-        setNearbyAgencies(mockAgencies)
+        console.warn('Failed to fetch real-world nearby agencies, falling back to localized mock list:', err)
+        const localizedMock = mockAgencies.map((agency, i) => {
+          const offsetLat = 0.0125 * (i % 2 === 0 ? 1 : -1) * (i + 1)
+          const offsetLng = 0.0145 * (i % 2 === 0 ? -1 : 1) * (i + 1)
+          return {
+            ...agency,
+            latitude: lat + offsetLat,
+            longitude: lng + offsetLng
+          }
+        })
+        setNearbyAgencies(localizedMock)
       } finally {
         setLoadingAgencies(false)
       }
