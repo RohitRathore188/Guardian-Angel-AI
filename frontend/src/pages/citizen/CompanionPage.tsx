@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useSearchParams, useNavigate } from 'react-router-dom'
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom'
 import { Send, Shield, Phone, MapPin, Compass, AlertTriangle, CheckCircle, Bell, FileText, MessageSquare, List, CloudRain, Info, Navigation, Zap, Cpu, Search, Filter, Play, Pause, RotateCcw, BarChart2, ArrowRight } from 'lucide-react'
 import apiClient from '../../lib/apiClient'
 import { supabase, IS_MOCK_MODE } from '../../lib/supabaseClient'
@@ -35,6 +35,7 @@ const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => 
 export default function CompanionPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const reactLocation = useLocation()
   const caseId = searchParams.get('case_id') || 'mock-case'
   const initialTab = searchParams.get('tab') as any || 'chat'
 
@@ -233,11 +234,37 @@ export default function CompanionPage() {
           else if (mappedStatus === 'dispatched') setTimelineStep(5)
           else if (mappedStatus === 'rescued') setTimelineStep(7)
           else if (mappedStatus === 'closed') setTimelineStep(8)
+        } else {
+          // Fallback: If case is not found in database (mock mode / local dev), try to load location from navigation state
+          const stateLocation = reactLocation.state?.location
+          const fallbackCase: Case = {
+            id: caseId,
+            location: stateLocation || { lat: 13.0827, lng: 80.2707, address: 'Reported Location' },
+            status: 'reported',
+            ai_severity: 'high',
+            ai_analysis: 'Citizen reported child emergency.',
+            ai_dispatch_reason: 'Pending authority assignment.',
+            created_at: new Date().toISOString(),
+            evidence: []
+          }
+          setCurrentCase(fallbackCase)
+          setTimelineStep(1)
         }
       } catch (err) {
         console.warn("DB fetch failed, using mock fallback", err)
-        const mock = mockCases.find(c => c.id === caseId) || mockCases[0]
-        setCurrentCase(mock)
+        const stateLocation = reactLocation.state?.location
+        const fallbackCase: Case = {
+          id: caseId,
+          location: stateLocation || { lat: 13.0827, lng: 80.2707, address: 'Reported Location' },
+          status: 'reported',
+          ai_severity: 'high',
+          ai_analysis: 'Citizen reported child emergency.',
+          ai_dispatch_reason: 'Pending authority assignment.',
+          created_at: new Date().toISOString(),
+          evidence: []
+        }
+        setCurrentCase(fallbackCase)
+        setTimelineStep(1)
       }
     }
   }

@@ -173,7 +173,10 @@ export default function ReportPage() {
       }
 
       navigate(`/companion?case_id=${case_id}&tab=tracking`, {
-        state: { immediateActions: immediate_actions_for_citizen }
+        state: { 
+          immediateActions: immediate_actions_for_citizen,
+          location: finalLocation
+        }
       })
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Submission failed.'
