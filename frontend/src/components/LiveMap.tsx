@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, useMap, Circle, Polyline } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, useMap, Circle, Polyline, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { Case } from '../lib/mockData'
@@ -186,10 +186,35 @@ function MapControlsHandler({
   return null
 }
 
+function getChildName(caseId: string) {
+  const hash = caseId.split('-')[1] || '1001';
+  const names: Record<string, string> = {
+    '1001': 'Aryan Dev',
+    '1002': 'Kiara Sen',
+    '1003': 'Kabir Rathore',
+    '1004': 'Ananya Roy',
+    '1005': 'Rahul Sharma',
+    '1006': 'Priya Das'
+  };
+  return names[hash] || `Child #${caseId.slice(-4).toUpperCase()}`;
+}
+
+function MapClickHandler({ onMapClick }: { onMapClick: () => void }) {
+  useMapEvents({
+    click: (e) => {
+      const target = e.originalEvent.target as HTMLElement;
+      if (target.classList.contains('leaflet-container') || target.classList.contains('leaflet-grab')) {
+        onMapClick();
+      }
+    }
+  });
+  return null;
+}
+
 interface LiveMapProps {
   cases: Case[]
   selectedCase: Case | null
-  onCaseSelect: (c: Case) => void
+  onCaseSelect: (c: Case | null) => void
   showHeatmap?: boolean
   showTraffic?: boolean
   showSearchZones?: boolean
@@ -219,6 +244,11 @@ export default function LiveMap({
   const [boundsList, setBoundsList] = useState<[number, number][] | null>(null)
   const [fitBoundsTrigger, setFitBoundsTrigger] = useState<number>(0)
   const [searchQuery, setSearchQuery] = useState('')
+
+  // Single-path routing states
+  const [selectedRoute, setSelectedRoute] = useState<[number, number][]>([])
+  const [routeCache, setRouteCache] = useState<Record<string, [number, number][]>>({})
+  const [loadingRoute, setLoadingRoute] = useState<boolean>(false)
 
   // Fly to selected case when chosen
   useEffect(() => {
@@ -330,30 +360,19 @@ export default function LiveMap({
     return true
   })
 
-  // OSRM Routes
-  const [hospitalRoute, setHospitalRoute] = useState<[number, number][]>([])
-  const [policeRoute, setPoliceRoute] = useState<[number, number][]>([])
-  const [volunteerRoute, setVolunteerRoute] = useState<[number, number][]>([])
-
-  // Nearest responders
-  const getNearestResponder = (type: string) => {
-    const list = visibleResponders.filter((r) => r.type === type && r.availability === 'Available')
-    if (!list.length || !selectedCase) return null
-    let nearest = list[0]
-    let minDist = getDistance(selectedCase.location.lat, selectedCase.location.lng, nearest.lat, nearest.lng)
-    for (let r of list) {
-      const dist = getDistance(selectedCase.location.lat, selectedCase.location.lng, r.lat, r.lng)
-      if (dist < minDist) {
-        minDist = dist
-        nearest = r
-      }
-    }
-    return nearest
+  // Single-path cached OSRM Route logic
+  const getAssignedAuthority = () => {
+    if (!selectedCase) return null
+    const authorityType = selectedCase.ai_severity === 'critical'
+      ? 'Hospital'
+      : selectedCase.ai_severity === 'high'
+      ? 'Police Station'
+      : 'Volunteer'
+    const list = visibleResponders.filter((r) => r.type === authorityType && r.availability === 'Available')
+    return list.length > 0 ? list[0] : null
   }
 
-  const nearestHospital = getNearestResponder('Hospital')
-  const nearestPolice = getNearestResponder('Police Station')
-  const nearestVolunteer = getNearestResponder('Volunteer')
+  const assignedAuthority = getAssignedAuthority()
 
   const fetchRoute = async (start: [number, number], end: [number, number], setRoute: (r: [number, number][]) => void) => {
     try {
@@ -371,17 +390,24 @@ export default function LiveMap({
   }
 
   useEffect(() => {
-    if (selectedCase) {
-      const childCoords: [number, number] = [selectedCase.location.lat, selectedCase.location.lng]
-      if (nearestHospital) fetchRoute([nearestHospital.lat, nearestHospital.lng], childCoords, setHospitalRoute)
-      if (nearestPolice) fetchRoute([nearestPolice.lat, nearestPolice.lng], childCoords, setPoliceRoute)
-      if (nearestVolunteer) fetchRoute([nearestVolunteer.lat, nearestVolunteer.lng], childCoords, setVolunteerRoute)
+    if (selectedCase && assignedAuthority) {
+      const cacheKey = `${assignedAuthority.id}-${selectedCase.id}`
+      if (routeCache[cacheKey]) {
+        setSelectedRoute(routeCache[cacheKey])
+      } else {
+        setLoadingRoute(true)
+        const start: [number, number] = [assignedAuthority.lat, assignedAuthority.lng]
+        const end: [number, number] = [selectedCase.location.lat, selectedCase.location.lng]
+        fetchRoute(start, end, (coords) => {
+          setRouteCache((prev) => ({ ...prev, [cacheKey]: coords }))
+          setSelectedRoute(coords)
+          setLoadingRoute(false)
+        })
+      }
     } else {
-      setHospitalRoute([])
-      setPoliceRoute([])
-      setVolunteerRoute([])
+      setSelectedRoute([])
     }
-  }, [selectedCase, nearestHospital?.id, nearestPolice?.id, nearestVolunteer?.id])
+  }, [selectedCase?.id, assignedAuthority?.id])
 
   const handleCenterOnChild = () => {
     if (selectedCase) {
@@ -441,6 +467,50 @@ export default function LiveMap({
     }
 
     triggerToast('Search Failed', 'No matching GIS assets, incidents, or locations found.', 'warning')
+  }
+
+  const getRescueInfoDetails = () => {
+    if (!selectedCase) return null;
+    
+    const authorityType = selectedCase.ai_severity === 'critical'
+      ? 'Hospital'
+      : selectedCase.ai_severity === 'high'
+      ? 'Police Station'
+      : 'Volunteer';
+      
+    const responders = generateMockResponders(selectedCase.location.lat, selectedCase.location.lng);
+    const list = responders.filter((r) => r.type === authorityType && r.availability === 'Available');
+    const assigned = list.length > 0 ? list[0] : null;
+    
+    const childName = getChildName(selectedCase.id);
+    const distance = assigned ? getDistance(selectedCase.location.lat, selectedCase.location.lng, assigned.lat, assigned.lng) : 1.8;
+    
+    const vehicleId = selectedCase.ai_severity === 'critical'
+      ? 'AMB-904'
+      : selectedCase.ai_severity === 'high'
+      ? 'PCR-412'
+      : 'VOL-704';
+      
+    const startTime = new Date(selectedCase.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    
+    const etaMinutes = Math.max(2, Math.round(distance * 3));
+    const arrivalTime = selectedCase.status === 'rescued' || selectedCase.status === 'closed'
+      ? 'Arrived (10m ago)'
+      : `Pending (ETA ${etaMinutes}m)`;
+      
+    return {
+      childId: selectedCase.id,
+      childName,
+      status: selectedCase.status,
+      severity: selectedCase.ai_severity,
+      authorityName: assigned ? assigned.name : 'Emergency Unit',
+      authorityType,
+      vehicleId,
+      startTime,
+      arrivalTime,
+      distance: loadingRoute ? 'Calculating...' : `${distance} KM`,
+      responseTime: loadingRoute ? 'Calculating...' : `${etaMinutes + 4} mins`
+    };
   }
 
   return (
@@ -656,6 +726,8 @@ export default function LiveMap({
 
         <MapControlsHandler centerCoords={centerTarget} bounds={boundsList} fitBoundsTrigger={fitBoundsTrigger} />
 
+        <MapClickHandler onMapClick={() => onCaseSelect(null)} />
+
         {/* Heatmap overlay */}
         {(showHeatmap || mapConfig.visibleLayers.includes('heatmap')) &&
           cases.map((c) => (
@@ -702,26 +774,28 @@ export default function LiveMap({
         {/* Traffic lines */}
         {(showTraffic || mapConfig.visibleLayers.includes('traffic')) && (
           <>
-            {cases.map((c, idx) => (
-              <span key={idx}>
-                <Polyline
-                  positions={[
-                    [c.location.lat, c.location.lng],
-                    [c.location.lat - 0.005, c.location.lng - 0.008],
-                    [c.location.lat - 0.012, c.location.lng - 0.015],
-                  ]}
-                  pathOptions={{ color: '#ef4444', weight: 4, opacity: 0.75 }}
-                />
-                <Polyline
-                  positions={[
-                    [c.location.lat + 0.004, c.location.lng + 0.005],
-                    [c.location.lat + 0.010, c.location.lng + 0.012],
-                    [c.location.lat + 0.018, c.location.lng + 0.020],
-                  ]}
-                  pathOptions={{ color: '#f97316', weight: 3, opacity: 0.65 }}
-                />
-              </span>
-            ))}
+            {cases.map((c, idx) => {
+              return (
+                <span key={idx}>
+                  <Polyline
+                    positions={[
+                      [c.location.lat, c.location.lng],
+                      [c.location.lat - 0.005, c.location.lng - 0.008],
+                      [c.location.lat - 0.012, c.location.lng - 0.015],
+                    ]}
+                    pathOptions={{ color: '#ef4444', weight: 4, opacity: 0.75 }}
+                  />
+                  <Polyline
+                    positions={[
+                      [c.location.lat + 0.004, c.location.lng + 0.005],
+                      [c.location.lat + 0.010, c.location.lng + 0.012],
+                      [c.location.lat + 0.018, c.location.lng + 0.020],
+                    ]}
+                    pathOptions={{ color: '#f97316', weight: 3, opacity: 0.65 }}
+                  />
+                </span>
+              );
+            })}
           </>
         )}
 
@@ -732,12 +806,16 @@ export default function LiveMap({
           const isNew = c.status === 'reported';
           const isDispatched = c.status === 'dispatched';
 
+          // Dim markers that are not selected when a child is focused
+          const markerOpacity = selectedCase ? (isSelected ? 1.0 : 0.35) : 1.0;
+
           return (
             <span key={c.id}>
               {/* Lost Child Marker - ALWAYS rendered on map */}
               <Marker
                 position={[c.location.lat, c.location.lng]}
                 icon={markerIcon}
+                opacity={markerOpacity}
                 eventHandlers={{
                   click: () => onCaseSelect(c),
                 }}
@@ -853,121 +931,104 @@ export default function LiveMap({
                         : gisIcons.Shelter;
 
                     const distance = getDistance(c.location.lat, c.location.lng, resp.lat, resp.lng)
+                    const isAssigned = assignedAuthority?.id === resp.id
 
                     return (
-                      <Marker key={resp.id} position={[resp.lat, resp.lng]} icon={responderIcon}>
-                        <Popup>
-                          <div className="p-2 text-slate-800 text-[11px] min-w-[150px]">
-                            <p className="font-black">{resp.name}</p>
-                            <p className="text-[8px] text-slate-500 uppercase tracking-wider mt-0.5">{resp.type}</p>
-                            <p className="text-primary font-bold mt-1.5">Distance: {distance} KM</p>
-                            <p className="text-slate-600 mt-0.5">Availability Status: {resp.availability}</p>
-                          </div>
-                        </Popup>
-                      </Marker>
+                      <span key={resp.id}>
+                        <Marker position={[resp.lat, resp.lng]} icon={responderIcon} opacity={isAssigned ? 1.0 : 0.75}>
+                          <Popup>
+                            <div className="p-2 text-slate-800 text-[11px] min-w-[150px]">
+                              <p className="font-black">{resp.name}</p>
+                              <p className="text-[8px] text-slate-500 uppercase tracking-wider mt-0.5">{resp.type}</p>
+                              <p className="text-primary font-bold mt-1.5">Distance: {distance} KM</p>
+                              <p className="text-slate-600 mt-0.5">Availability Status: {resp.availability}</p>
+                              {isAssigned && <p className="text-emerald-600 font-extrabold mt-1">⭐️ ASSIGNED DISPATCH</p>}
+                            </div>
+                          </Popup>
+                        </Marker>
+                        {isAssigned && (
+                          <Circle
+                            center={[resp.lat, resp.lng]}
+                            radius={100}
+                            pathOptions={{
+                              fillColor: '#10b981',
+                              fillOpacity: 0.15,
+                              color: '#10b981',
+                              weight: 1.5,
+                              className: 'new-case-highlight-pulse'
+                            }}
+                          />
+                        )}
+                      </span>
                     )
                   })}
 
-                  {/* Dotted polyline dispatch animations */}
-                  {toggleRoutes && mapConfig.visibleLayers.includes('routes') && (
+                  {/* Dotted polyline dispatch animations - ONLY for selected case */}
+                  {toggleRoutes && mapConfig.visibleLayers.includes('routes') && selectedRoute.length > 0 && (
                     <>
-                      {/* Critical severity gets Hospital dispatch path */}
-                      {c.ai_severity === 'critical' && nearestHospital && hospitalRoute.length > 0 && (
-                        <>
-                          <Polyline positions={hospitalRoute} pathOptions={{ color: '#3b82f6', weight: 4.5, className: 'animated-route-line route-hospital' }} />
-                          {(() => {
-                            const pos = getProgressCoordinate(hospitalRoute, routeProgress)
-                            return pos ? (
-                              <Marker position={pos} icon={gisIcons.Hospital}>
-                                <Popup>
-                                  <div className="text-[10px] bg-dark-950 text-white p-2 rounded border border-white/10">
-                                    <p className="font-bold text-primary">🚑 AMBULANCE EN ROUTE</p>
-                                    <p className="text-[8.5px] text-slate-400 mt-1">Origin: {nearestHospital.name}</p>
-                                    <p className="text-[8.5px] text-slate-400">Destination: {c.location.address}</p>
-                                  </div>
-                                </Popup>
-                              </Marker>
-                            ) : null
-                          })()}
-                        </>
-                      )}
+                      <Polyline 
+                        positions={selectedRoute} 
+                        pathOptions={{ 
+                          color: c.ai_severity === 'critical' ? '#3b82f6' : c.ai_severity === 'high' ? '#ef4444' : '#10b981', 
+                          weight: 5.5, 
+                          className: 'animated-route-line route-prominent' 
+                        }} 
+                      />
+                      {(() => {
+                        const pos = getProgressCoordinate(selectedRoute, routeProgress)
+                        const vehicleIcon = c.ai_severity === 'critical' 
+                          ? gisIcons.Hospital 
+                          : c.ai_severity === 'high' 
+                          ? gisIcons.Police 
+                          : gisIcons.Volunteer;
 
-                      {/* High severity gets Police cruiser dispatch path */}
-                      {c.ai_severity === 'high' && nearestPolice && policeRoute.length > 0 && (
-                        <>
-                          <Polyline positions={policeRoute} pathOptions={{ color: '#ef4444', weight: 4.5, className: 'animated-route-line route-police' }} />
-                          {(() => {
-                            const pos = getProgressCoordinate(policeRoute, (routeProgress + 40) % 100)
-                            return pos ? (
-                              <Marker position={pos} icon={gisIcons.Police}>
-                                <Popup>
-                                  <div className="text-[10px] bg-dark-950 text-white p-2 rounded border border-white/10">
-                                    <p className="font-bold text-red-400">🚓 POLICE CRUISER DISPATCHED</p>
-                                    <p className="text-[8.5px] text-slate-400 mt-1">Origin: {nearestPolice.name}</p>
-                                    <p className="text-[8.5px] text-slate-400">Destination: {c.location.address}</p>
-                                  </div>
-                                </Popup>
-                              </Marker>
-                            ) : null
-                          })()}
-                        </>
-                      )}
-
-                      {/* Moderate severity gets Volunteer dispatcher path */}
-                      {c.ai_severity === 'moderate' && nearestVolunteer && volunteerRoute.length > 0 && (
-                        <>
-                          <Polyline positions={volunteerRoute} pathOptions={{ color: '#10b981', weight: 4.5, className: 'animated-route-line route-volunteer' }} />
-                          {(() => {
-                            const pos = getProgressCoordinate(volunteerRoute, (routeProgress + 75) % 100)
-                            return pos ? (
-                              <Marker position={pos} icon={gisIcons.Volunteer}>
-                                <Popup>
-                                  <div className="text-[10px] bg-dark-950 text-white p-2 rounded border border-white/10">
-                                    <p className="font-bold text-emerald-400">🛵 NEAREST VOLUNTEER SQUAD</p>
-                                    <p className="text-[8.5px] text-slate-400 mt-1">Origin: {nearestVolunteer.name}</p>
-                                    <p className="text-[8.5px] text-slate-400">Destination: {c.location.address}</p>
-                                  </div>
-                                </Popup>
-                              </Marker>
-                            ) : null
-                          })()}
-                        </>
-                      )}
-
-                      {/* Aerial rescue drone straight-line scanning path */}
-                      {toggleDrone && (
-                        (() => {
-                          const droneBase: [number, number] = [
-                            c.location.lat + 0.012,
-                            c.location.lng - 0.015
-                          ];
-                          const droneRoute: [number, number][] = [
-                            droneBase,
-                            [c.location.lat, c.location.lng]
-                          ];
-                          const dronePos = getProgressCoordinate(droneRoute, (routeProgress + 20) % 100);
-                          return (
-                            <>
-                              <Polyline 
-                                positions={droneRoute} 
-                                pathOptions={{ color: '#a855f7', weight: 3, className: 'animated-route-line route-drone' }} 
-                              />
-                              {dronePos && (
-                                <Marker position={dronePos} icon={gisIcons.Drone}>
-                                  <Popup>
-                                    <div className="text-[10px] bg-dark-950 text-white p-2 rounded border border-white/10">
-                                      <p className="font-bold text-purple-400">🛸 RESCUE DRONE ACTIVE</p>
-                                      <p className="text-[8.5px] text-slate-400 mt-1">Status: Scanning Flight Path</p>
-                                      <p className="text-[8.5px] text-slate-400">FLIR Sensor: Enabled</p>
-                                    </div>
-                                  </Popup>
-                                </Marker>
-                              )}
-                            </>
-                          );
-                        })()
-                      )}
+                        return pos ? (
+                          <Marker position={pos} icon={vehicleIcon}>
+                            <Popup>
+                              <div className="text-[10px] bg-dark-950 text-white p-2 rounded border border-white/10">
+                                <p className="font-bold text-primary">🚑 RESPONDING SQUAD ACTIVE</p>
+                                <p className="text-[8.5px] text-slate-400 mt-1">Status: En Route via OSRM</p>
+                                <p className="text-[8.5px] text-slate-400 font-mono">Team ID: {c.ai_severity === 'critical' ? 'AMB-904' : c.ai_severity === 'high' ? 'PCR-412' : 'VOL-704'}</p>
+                              </div>
+                            </Popup>
+                          </Marker>
+                        ) : null
+                      })()}
                     </>
+                  )}
+
+                  {/* Aerial rescue drone straight-line scanning path */}
+                  {toggleDrone && (
+                    (() => {
+                      const droneBase: [number, number] = [
+                        c.location.lat + 0.012,
+                        c.location.lng - 0.015
+                      ];
+                      const droneRoute: [number, number][] = [
+                        droneBase,
+                        [c.location.lat, c.location.lng]
+                      ];
+                      const dronePos = getProgressCoordinate(droneRoute, (routeProgress + 20) % 100);
+                      return (
+                        <>
+                          <Polyline 
+                            positions={droneRoute} 
+                            pathOptions={{ color: '#a855f7', weight: 3, className: 'animated-route-line route-drone' }} 
+                          />
+                          {dronePos && (
+                            <Marker position={dronePos} icon={gisIcons.Drone}>
+                              <Popup>
+                                <div className="text-[10px] bg-dark-950 text-white p-2 rounded border border-white/10">
+                                  <p className="font-bold text-purple-400">🛸 RESCUE DRONE ACTIVE</p>
+                                  <p className="text-[8.5px] text-slate-400 mt-1">Status: Scanning Flight Path</p>
+                                  <p className="text-[8.5px] text-slate-400">FLIR Sensor: Enabled</p>
+                                </div>
+                              </Popup>
+                            </Marker>
+                          )}
+                        </>
+                      );
+                    })()
                   )}
                 </>
               )}
@@ -975,44 +1036,46 @@ export default function LiveMap({
           );
         })}
 
-        {/* Gliding active vehicle dispatches */}
-        {Object.values(activeDispatches).map((d) => {
-          const emoji = d.type === 'hospital' ? '🚑' : d.type === 'ngo' ? '🚐' : '🚓'
-          const label = d.type === 'hospital' ? 'AMBULANCE' : d.type === 'ngo' ? 'NGO VAN' : 'POLICE CAR'
-          const color = d.type === 'hospital' ? '#3b82f6' : d.type === 'ngo' ? '#f97316' : '#ef4444'
+        {/* Gliding active vehicle dispatches (ONLY for selected case) */}
+        {Object.values(activeDispatches)
+          .filter((d: any) => selectedCase && d.caseId === selectedCase.id)
+          .map((d: any) => {
+            const emoji = d.type === 'hospital' ? '🚑' : d.type === 'ngo' ? '🚐' : '🚓'
+            const label = d.type === 'hospital' ? 'AMBULANCE' : d.type === 'ngo' ? 'NGO VAN' : 'POLICE CAR'
+            const color = d.type === 'hospital' ? '#3b82f6' : d.type === 'ngo' ? '#f97316' : '#ef4444'
 
-          const vehicleIcon = L.divIcon({
-            className: '',
-            html: `
-              <div style="
-                display: flex; flex-direction: column; align-items: center; justify-content: center;
-                animation: glide-float 1s ease-in-out infinite alternate;
-              ">
+            const vehicleIcon = L.divIcon({
+              className: '',
+              html: `
                 <div style="
-                  font-size: 26px;
-                  filter: drop-shadow(0 0 6px ${color});
-                ">${emoji}</div>
-                <div style="
-                  background: #0a0a0f;
-                  border: 1px solid ${color};
-                  color: #fff;
-                  font-size: 7px;
-                  padding: 1.5px 3px;
-                  border-radius: 4px;
-                  font-weight: bold;
-                  white-space: nowrap;
-                  margin-top: 1px;
-                  box-shadow: 0 2px 5px rgba(0,0,0,0.6);
-                  letter-spacing: 0.5px;
-                ">${label}</div>
-              </div>
-            `,
-            iconSize: [40, 40],
-            iconAnchor: [20, 20],
-          })
+                  display: flex; flex-direction: column; align-items: center; justify-content: center;
+                  animation: glide-float 1s ease-in-out infinite alternate;
+                ">
+                  <div style="
+                    font-size: 26px;
+                    filter: drop-shadow(0 0 6px ${color});
+                  ">${emoji}</div>
+                  <div style="
+                    background: #0a0a0f;
+                    border: 1px solid ${color};
+                    color: #fff;
+                    font-size: 7px;
+                    padding: 1.5px 3px;
+                    border-radius: 4px;
+                    font-weight: bold;
+                    white-space: nowrap;
+                    margin-top: 1px;
+                    box-shadow: 0 2px 5px rgba(0,0,0,0.6);
+                    letter-spacing: 0.5px;
+                  ">${label}</div>
+                </div>
+              `,
+              iconSize: [40, 40],
+              iconAnchor: [20, 20],
+            })
 
-          return <Marker key={`vehicle-${d.caseId}`} position={[d.currentLat, d.currentLng]} icon={vehicleIcon} />
-        })}
+            return <Marker key={`vehicle-${d.caseId}`} position={[d.currentLat, d.currentLng]} icon={vehicleIcon} />
+          })}
       </MapContainer>
 
       {/* Map Legend */}
@@ -1025,6 +1088,82 @@ export default function LiveMap({
           </div>
         ))}
       </div>
+
+      {/* ── Rescue Information Panel ── */}
+      {selectedCase && (
+        (() => {
+          const info = getRescueInfoDetails();
+          if (!info) return null;
+          return (
+            <div 
+              className="absolute bottom-4 right-4 z-[1000] p-4 border border-white/15 bg-dark-900/95 backdrop-blur-md rounded-2xl w-[320px] shadow-2xl flex flex-col gap-3 transition-all duration-300"
+              style={{ boxShadow: '0 8px 32px 0 rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08)' }}
+            >
+              <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-white font-black text-[10px] uppercase tracking-wider">Rescue Mission Control</span>
+                </div>
+                <button 
+                  onClick={() => onCaseSelect(null)}
+                  className="text-slate-400 hover:text-white transition-colors text-xs font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Child Info */}
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-white font-extrabold text-xs">{info.childName}</p>
+                  <p className="text-slate-500 text-[8.5px] font-mono mt-0.5">ID: #{info.childId.slice(0, 8).toUpperCase()}</p>
+                </div>
+                <span className={`text-[8.5px] px-2 py-0.5 rounded font-extrabold border ${
+                  info.severity === 'critical' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-orange-500/10 text-orange-400 border-orange-500/20'
+                }`}>{info.severity.toUpperCase()}</span>
+              </div>
+
+              {/* Authority Details */}
+              <div className="bg-dark-950/60 p-2.5 rounded-xl border border-white/5 space-y-1">
+                <p className="text-[8px] text-slate-500 uppercase font-black tracking-wider">Assigned Responder</p>
+                <div className="flex items-center justify-between text-[10.5px]">
+                  <span className="text-white font-bold">{info.authorityName}</span>
+                  <span className="text-slate-400 font-mono text-[9px]">{info.vehicleId}</span>
+                </div>
+                <p className="text-[8.5px] text-slate-500 mt-0.5">{info.authorityType} Division Squad</p>
+              </div>
+
+              {/* Grid details */}
+              <div className="grid grid-cols-2 gap-2 text-[9px]">
+                <div className="bg-dark-950/40 p-2 rounded-lg border border-white/5">
+                  <p className="text-slate-500 font-bold uppercase">Rescue Status</p>
+                  <p className="text-primary font-black mt-0.5 uppercase tracking-wide">{info.status}</p>
+                </div>
+                <div className="bg-dark-950/40 p-2 rounded-lg border border-white/5">
+                  <p className="text-slate-500 font-bold uppercase">Distance</p>
+                  <p className="text-white font-black mt-0.5">{info.distance}</p>
+                </div>
+                <div className="bg-dark-950/40 p-2 rounded-lg border border-white/5">
+                  <p className="text-slate-500 font-bold uppercase">Departed</p>
+                  <p className="text-white font-black mt-0.5">{info.startTime}</p>
+                </div>
+                <div className="bg-dark-950/40 p-2 rounded-lg border border-white/5">
+                  <p className="text-slate-500 font-bold uppercase">ETA / Arrival</p>
+                  <p className="text-emerald-400 font-black mt-0.5">{info.arrivalTime}</p>
+                </div>
+              </div>
+
+              {/* Clear button */}
+              <button 
+                onClick={() => onCaseSelect(null)}
+                className="w-full text-center py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-[9px] uppercase tracking-wider transition-all mt-1"
+              >
+                ✕ Clear Selection
+              </button>
+            </div>
+          )
+        })()
+      )}
     </div>
   )
 }
