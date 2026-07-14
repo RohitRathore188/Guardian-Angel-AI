@@ -950,10 +950,10 @@ TIMESTAMP:    ${new Date().toLocaleString()}
         <>
           {/* Tabs Container */}
           <div className="flex bg-dark-950/80 border-b border-white/5 relative z-15 w-full">
-            <div className="flex w-full max-w-7xl mx-auto px-5">
+            <div className="flex w-full max-w-7xl mx-auto px-2 sm:px-5">
               {[
                 { id: 'chat', label: 'AI Chat', icon: <MessageSquare className="w-3.5 h-3.5" /> },
-                { id: 'tracking', label: 'Tracking & Monitoring', icon: <Compass className="w-3.5 h-3.5" /> },
+                { id: 'tracking', label: 'Tracking', icon: <Compass className="w-3.5 h-3.5" /> },
                 { id: 'help', label: 'Nearby Help', icon: <MapPin className="w-3.5 h-3.5" /> },
                 { id: 'notifications', label: 'Updates', icon: <Bell className="w-3.5 h-3.5" /> },
                 { id: 'my-reports', label: 'History', icon: <List className="w-3.5 h-3.5" /> }
@@ -972,7 +972,7 @@ TIMESTAMP:    ${new Date().toLocaleString()}
                   }`}
                 >
                   {tab.icon}
-                  {tab.label}
+                  <span className="hidden sm:inline truncate max-w-full">{tab.label}</span>
                 </button>
               ))}
             </div>

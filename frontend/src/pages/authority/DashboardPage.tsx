@@ -6,7 +6,7 @@ import { supabase, IS_MOCK_MODE } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthContext'
 import apiClient from '../../lib/apiClient'
 import { 
-  LogOut, Search, Shield, Bell, AlertTriangle, Settings, Database
+  LogOut, Search, Shield, Bell, AlertTriangle, Settings, Database, Menu, X
 } from 'lucide-react'
 import { useNotifications } from '../../context/NotificationContext'
 import { getRoleConfig } from '../../config/getRoleConfig'
@@ -42,6 +42,7 @@ export default function DashboardPage() {
   const { profile, signOut } = useAuth()
   const navigate = useNavigate()
   const [demoModeActive, setDemoModeActive] = useState(true)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const generateDemoCases = () => {
     const cities = [
@@ -649,7 +650,7 @@ TIMESTAMP:    ${new Date().toLocaleString()}
       )}
 
       {/* Top bar */}
-      <header className="header-glass px-6 py-4 flex items-center justify-between flex-shrink-0 z-10">
+      <header className="header-glass px-6 py-4 flex items-center justify-between flex-shrink-0 z-25 relative">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-primary/20 flex items-center justify-center">
             <Shield className="w-5 h-5 text-primary" />
@@ -660,7 +661,7 @@ TIMESTAMP:    ${new Date().toLocaleString()}
           </div>
         </div>
 
-        {/* Navigation Tabs (Dynamic based on allowed permissions) */}
+        {/* Navigation Tabs (Dynamic based on allowed permissions) - Hidden on Mobile */}
         <div className="hidden md:flex items-center gap-1">
           {config.tabs.map((tab) => (
             <button
@@ -676,10 +677,10 @@ TIMESTAMP:    ${new Date().toLocaleString()}
           ))}
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 md:gap-4">
           
-          {/* Demo Mode Toggle */}
-          <div className="flex items-center gap-2 bg-dark-800/80 border border-white/5 px-2.5 py-1 rounded-xl">
+          {/* Demo Mode Toggle - Desktop Only */}
+          <div className="hidden xl:flex items-center gap-2 bg-dark-800/80 border border-white/5 px-2.5 py-1 rounded-xl">
             <span className="text-[9px] text-slate-500 font-bold uppercase pl-1">Demo Data:</span>
             <button 
               onClick={handleToggleDemoData}
@@ -691,8 +692,8 @@ TIMESTAMP:    ${new Date().toLocaleString()}
             </button>
           </div>
 
-          {/* Hackathon Role override selector */}
-          <div className="flex items-center gap-1 bg-dark-800/80 border border-white/5 px-2 py-1 rounded-xl">
+          {/* Hackathon Role override selector - Desktop Only */}
+          <div className="hidden lg:flex items-center gap-1 bg-dark-800/80 border border-white/5 px-2 py-1 rounded-xl">
             <span className="text-[9px] text-slate-500 font-bold uppercase pl-1">Role View:</span>
             <select
               value={currentRole}
@@ -709,7 +710,8 @@ TIMESTAMP:    ${new Date().toLocaleString()}
             </select>
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Radius Selector - Desktop Only */}
+          <div className="hidden md:flex items-center gap-2">
             <span className="text-[10px] text-slate-500 font-bold uppercase hidden sm:block">Radius:</span>
             <select
               value={opRadius}
@@ -723,7 +725,8 @@ TIMESTAMP:    ${new Date().toLocaleString()}
             </select>
           </div>
 
-          <div className="relative hidden sm:block">
+          {/* Search Bar - Desktop Only */}
+          <div className="relative hidden xl:block">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
             <input
               type="text"
@@ -734,7 +737,7 @@ TIMESTAMP:    ${new Date().toLocaleString()}
             />
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 md:gap-3">
             
             {/* Centralized Notifications Bell */}
             <div className="relative">
@@ -787,25 +790,176 @@ TIMESTAMP:    ${new Date().toLocaleString()}
               )}
             </div>
 
-            <div className="relative">
+            {/* Profile badge - Desktop Only */}
+            <div className="relative hidden md:block">
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs text-white border border-primary/20">
                 {profile?.name ? profile.name.slice(0, 2).toUpperCase() : 'SJ'}
               </div>
               <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-dark-900" />
             </div>
+
             <div className="hidden lg:block text-left">
               <p className="text-white text-xs font-semibold">{profile?.name || 'Sarah J.'}</p>
               <p className="text-slate-500 text-[9px] uppercase font-black">{config.roleName}</p>
             </div>
-            <button onClick={signOut} className="p-2 rounded-lg hover:bg-dark-700 text-slate-400 hover:text-white transition-colors ml-2">
+
+            <button onClick={signOut} className="p-2 rounded-lg hover:bg-dark-700 text-slate-400 hover:text-white transition-colors ml-2 hidden md:block">
               <LogOut className="w-4 h-4" />
+            </button>
+
+            {/* Mobile Hamburger Menu Toggle Button */}
+            <button
+              onClick={() => setMenuOpen(true)}
+              className="w-9 h-9 rounded-xl bg-dark-800/80 border border-white/5 flex items-center justify-center hover:bg-dark-850 transition-all text-slate-300 hover:text-white md:hidden"
+            >
+              <Menu className="w-5 h-5" />
             </button>
           </div>
         </div>
       </header>
 
+      {/* ── Mobile Sidebar Drawer ── */}
+      {menuOpen && (
+        <>
+          {/* Backdrop Overlay */}
+          <div 
+            className="fixed inset-0 bg-black/60 z-[999] md:hidden backdrop-blur-sm"
+            onClick={() => setMenuOpen(false)}
+          />
+          {/* Drawer Panel content */}
+          <div className="fixed top-0 right-0 h-full w-72 bg-dark-900 border-l border-white/10 z-[1000] p-5 flex flex-col justify-between shadow-2xl md:hidden overflow-y-auto scrollbar">
+            <div className="space-y-6">
+              {/* Header block inside drawer */}
+              <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                <div className="flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-primary" />
+                  <span className="text-white font-bold text-xs uppercase tracking-wider">Rescue Console</span>
+                </div>
+                <button 
+                  onClick={() => setMenuOpen(false)}
+                  className="p-1 rounded-lg border border-white/5 hover:border-white/10 text-slate-400 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Navigation Tabs List */}
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider block mb-1">Navigation Tabs</span>
+                {config.tabs.map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => {
+                      setActiveTab(tab)
+                      setMenuOpen(false)
+                    }}
+                    className={`w-full px-4 py-2.5 rounded-lg text-left text-xs font-semibold transition-all ${activeTab === tab
+                        ? 'bg-primary text-white border border-primary/20 shadow-md shadow-primary/20'
+                        : 'text-slate-400 hover:text-white hover:bg-dark-700/50'
+                      }`}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
+
+              {/* Configuration selectors */}
+              <div className="space-y-4 border-t border-white/5 pt-4">
+                {/* Search field */}
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Search Cases</span>
+                  <div className="relative w-full">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                    <input
+                      type="text"
+                      placeholder={config.searchPlaceholder}
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="bg-dark-800/80 border border-white/5 rounded-lg pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-white/10 w-full"
+                    />
+                  </div>
+                </div>
+
+                {/* Operations Radius */}
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Operational Radius</span>
+                  <select
+                    value={opRadius}
+                    onChange={(e) => setOpRadius(parseFloat(e.target.value))}
+                    className="bg-dark-800/80 border border-white/5 rounded-lg px-2.5 py-2 text-xs text-white w-full focus:outline-none"
+                  >
+                    <option value={2}>2 KM</option>
+                    <option value={5}>5 KM</option>
+                    <option value={10}>10 KM</option>
+                    <option value={10000}>All Cases (National)</option>
+                  </select>
+                </div>
+
+                {/* Role Overrides select */}
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Role View</span>
+                  <select
+                    value={currentRole}
+                    onChange={(e) => {
+                      setActiveRoleOverride(e.target.value)
+                      setMenuOpen(false)
+                    }}
+                    className="bg-dark-800/80 border border-white/5 rounded-lg px-2.5 py-2 text-xs text-white w-full focus:outline-none"
+                  >
+                    <option value="citizen">Citizen</option>
+                    <option value="police">Police</option>
+                    <option value="hospital">Hospital</option>
+                    <option value="volunteer">Volunteer</option>
+                    <option value="ngo">NGO</option>
+                    <option value="child_welfare">Child Welfare</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+
+                {/* Demo Data Toggle */}
+                <div className="flex justify-between items-center bg-dark-800/80 border border-white/5 px-3 py-2 rounded-xl">
+                  <span className="text-[9px] text-slate-400 font-bold uppercase">Demo Data:</span>
+                  <button 
+                    onClick={handleToggleDemoData}
+                    className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase ${
+                      demoModeActive ? 'bg-primary/20 text-primary' : 'bg-slate-700 text-slate-400'
+                    }`}
+                  >
+                    {demoModeActive ? 'Active' : 'Disabled'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Profile badge and signout button inside drawer */}
+            <div className="border-t border-white/5 pt-4 mt-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs text-white border border-primary/20 relative">
+                  {profile?.name ? profile.name.slice(0, 2).toUpperCase() : 'SJ'}
+                  <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-dark-900" />
+                </div>
+                <div className="text-left">
+                  <p className="text-white text-xs font-semibold">{profile?.name || 'Sarah J.'}</p>
+                  <p className="text-slate-500 text-[8px] uppercase font-black">{config.roleName}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => {
+                  signOut()
+                  setMenuOpen(false)
+                }}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-white/5 hover:border-white/10 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold uppercase transition-all"
+              >
+                <LogOut className="w-4 h-4" />
+                Log Out
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Main Container */}
-      <div className="flex flex-1 overflow-hidden p-6 bg-dark-950">
+      <div className="flex flex-1 overflow-hidden p-4 sm:p-6 bg-dark-950">
         
         {/* TAB 1: Dashboard Workspace */}
         {activeTab === 'Dashboard' ? (

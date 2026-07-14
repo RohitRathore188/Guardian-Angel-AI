@@ -440,14 +440,38 @@ export default function WidgetRenderer({
 
       case 'Gauge': {
         const value = widget.id.includes('beds') ? 82 : widget.id.includes('officers') ? 45 : 78;
+        const offset = 125.7 - (125.7 * value) / 100;
         return (
-          <div className="flex flex-col justify-between h-full pt-1">
-            <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-black text-white">{value}%</span>
-              <span className="text-[10px] text-slate-500">Utilization</span>
-            </div>
-            <div className="w-full bg-dark-950 rounded-full h-2 overflow-hidden border border-white/5">
-              <div className="bg-blue-400 h-full rounded-full" style={{ width: `${value}%` }} />
+          <div className="flex flex-col items-center justify-center h-full relative pt-1">
+            <svg className="w-40 h-24 transform rotate-180" viewBox="0 0 100 60">
+              {/* Background Semicircle */}
+              <path
+                d="M10,50 A40,40 0 0,1 90,50"
+                fill="none"
+                stroke="#111118"
+                strokeWidth="8"
+                strokeLinecap="round"
+              />
+              {/* Active Value Arc */}
+              <path
+                d="M10,50 A40,40 0 0,1 90,50"
+                fill="none"
+                stroke={widget.id.includes('beds') ? '#10b981' : '#3b82f6'}
+                strokeWidth="8"
+                strokeLinecap="round"
+                strokeDasharray="125.7"
+                strokeDashoffset={offset}
+                className="transition-all duration-1000 ease-out"
+                style={{
+                  filter: `drop-shadow(0 0 4px ${widget.id.includes('beds') ? 'rgba(16,185,129,0.3)' : 'rgba(59,130,246,0.3)'})`
+                }}
+              />
+            </svg>
+            <div className="absolute bottom-1 flex flex-col items-center justify-center">
+              <span className="text-white text-2xl font-black font-mono leading-none">{value}%</span>
+              <span className="text-[7.5px] text-slate-500 uppercase tracking-widest font-bold mt-1.5">
+                {widget.id.includes('beds') ? 'ER Bed Load' : widget.id.includes('officers') ? 'Active Patrols' : 'Utilization'}
+              </span>
             </div>
           </div>
         );
