@@ -132,9 +132,11 @@ const citizenActions: ActionConfig[] = [
     buttonStyle: 'secondary',
     successMessage: 'Live coordinates telemetry active.',
     handler: (ctx) => {
+      const lat = ctx.currentCase?.location.lat || 20.5937;
+      const lng = ctx.currentCase?.location.lng || 78.9629;
       ctx.addNotification({
         title: '📡 Live GPS Telemetry Broadcast',
-        body: 'Broadcasting from current coordinates: lat=13.0827, lng=80.2707',
+        body: `Broadcasting from current coordinates: lat=${lat.toFixed(4)}, lng=${lng.toFixed(4)}`,
         category: 'Navigation',
         priority: 'info',
       });

@@ -141,9 +141,9 @@ export default function ReportPage() {
 
       if (!finalLocation) {
         finalLocation = {
-          lat: 13.0827,
-          lng: 80.2707,
-          address: manualAddress || 'Chennai, India',
+          lat: 20.5937,
+          lng: 78.9629,
+          address: manualAddress || 'India (Default View)',
         }
       }
 

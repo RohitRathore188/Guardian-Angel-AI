@@ -14,7 +14,7 @@ export interface Case {
 export const mockCases: Case[] = [
   {
     id: 'case-001',
-    location: { lat: 13.0827, lng: 80.2707, address: 'Central Railway Station, Chennai' },
+    location: { lat: 28.6139, lng: 77.2090, address: 'Connaught Place, New Delhi' },
     status: 'reported',
     ai_severity: 'critical',
     ai_analysis:
@@ -26,7 +26,7 @@ export const mockCases: Case[] = [
   },
   {
     id: 'case-002',
-    location: { lat: 13.0604, lng: 80.2496, address: 'Adyar Park, Chennai' },
+    location: { lat: 19.0760, lng: 72.8777, address: 'Gateway of India, Mumbai' },
     status: 'dispatched',
     ai_severity: 'high',
     ai_analysis:
@@ -38,7 +38,7 @@ export const mockCases: Case[] = [
   },
   {
     id: 'case-003',
-    location: { lat: 13.1067, lng: 80.2941, address: 'Villivakkam Metro Station, Chennai' },
+    location: { lat: 22.7196, lng: 75.8577, address: 'Rajwada, Indore' },
     status: 'rescued',
     ai_severity: 'moderate',
     ai_analysis:

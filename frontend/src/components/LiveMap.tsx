@@ -238,9 +238,53 @@ export default function LiveMap({
     }
   }, [cases])
 
-  const defaultCenter: [number, number] = cases.length > 0
-    ? [cases[0].location.lat, cases[0].location.lng]
-    : [13.0827, 80.2707] // Chennai fallback coordinates
+  const [gpsLocation, setGpsLocation] = useState<[number, number] | null>(null)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setGpsLocation([pos.coords.latitude, pos.coords.longitude])
+        },
+        () => console.warn('No GPS coords available for map center')
+      )
+    }
+  }, [])
+
+  // Dynamic Priority Centering Logic
+  const getDynamicCenter = (): [number, number] => {
+    // 1. Selected Incident
+    if (selectedCase) {
+      return [selectedCase.location.lat, selectedCase.location.lng]
+    }
+    // 2. Live GPS Location
+    if (gpsLocation) {
+      return gpsLocation
+    }
+    // 3. Reported Case Location
+    if (cases.length > 0) {
+      const activeCases = cases.filter(c => c.status !== 'closed')
+      if (activeCases.length > 0) {
+        return [activeCases[0].location.lat, activeCases[0].location.lng]
+      }
+      return [cases[0].location.lat, cases[0].location.lng]
+    }
+    // 4. Default India Center
+    return [20.5937, 78.9629]
+  }
+
+  const defaultCenter = getDynamicCenter()
+  const defaultZoom = cases.length > 0 ? 11 : 5
+
+  useEffect(() => {
+    console.log('[GIS AUDIT LOGS]', {
+      currentMapCenter: defaultCenter,
+      currentIncident: selectedCase,
+      currentGPS: gpsLocation,
+      currentSearchResult: centerTarget,
+      currentBounds: boundsList
+    })
+  }, [defaultCenter, selectedCase, gpsLocation, centerTarget, boundsList])
 
   // Generate responders list around center
   const respondersList = selectedCase
@@ -502,7 +546,7 @@ export default function LiveMap({
 
       <MapContainer
         center={defaultCenter}
-        zoom={13}
+        zoom={defaultZoom}
         style={{ height: '100%', width: '100%', minHeight: '400px' }}
       >
         <TileLayer
@@ -553,22 +597,26 @@ export default function LiveMap({
         {/* Traffic lines */}
         {(showTraffic || mapConfig.visibleLayers.includes('traffic')) && (
           <>
-            <Polyline
-              positions={[
-                [13.0827, 80.2707],
-                [13.072, 80.255],
-                [13.055, 80.245],
-              ]}
-              pathOptions={{ color: '#ef4444', weight: 4, opacity: 0.75 }}
-            />
-            <Polyline
-              positions={[
-                [13.013, 80.25],
-                [13.028, 80.235],
-                [13.042, 80.218],
-              ]}
-              pathOptions={{ color: '#f97316', weight: 3, opacity: 0.65 }}
-            />
+            {cases.map((c, idx) => (
+              <span key={idx}>
+                <Polyline
+                  positions={[
+                    [c.location.lat, c.location.lng],
+                    [c.location.lat - 0.005, c.location.lng - 0.008],
+                    [c.location.lat - 0.012, c.location.lng - 0.015],
+                  ]}
+                  pathOptions={{ color: '#ef4444', weight: 4, opacity: 0.75 }}
+                />
+                <Polyline
+                  positions={[
+                    [c.location.lat + 0.004, c.location.lng + 0.005],
+                    [c.location.lat + 0.010, c.location.lng + 0.012],
+                    [c.location.lat + 0.018, c.location.lng + 0.020],
+                  ]}
+                  pathOptions={{ color: '#f97316', weight: 3, opacity: 0.65 }}
+                />
+              </span>
+            ))}
           </>
         )}
 

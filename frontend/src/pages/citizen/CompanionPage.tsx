@@ -216,8 +216,8 @@ export default function CompanionPage() {
           setCurrentCase({
             id: data.id,
             location: {
-              lat: data.latitude || 13.0827,
-              lng: data.longitude || 80.2707,
+              lat: data.latitude || 20.5937,
+              lng: data.longitude || 78.9629,
               address: data.address || 'Unknown Location'
             },
             status: mappedStatus,
@@ -239,7 +239,7 @@ export default function CompanionPage() {
           const stateLocation = reactLocation.state?.location
           const fallbackCase: Case = {
             id: caseId,
-            location: stateLocation || { lat: 13.0827, lng: 80.2707, address: 'Reported Location' },
+            location: stateLocation || { lat: 20.5937, lng: 78.9629, address: 'Reported Location' },
             status: 'reported',
             ai_severity: 'high',
             ai_analysis: 'Citizen reported child emergency.',
@@ -255,7 +255,7 @@ export default function CompanionPage() {
         const stateLocation = reactLocation.state?.location
         const fallbackCase: Case = {
           id: caseId,
-          location: stateLocation || { lat: 13.0827, lng: 80.2707, address: 'Reported Location' },
+          location: stateLocation || { lat: 20.5937, lng: 78.9629, address: 'Reported Location' },
           status: 'reported',
           ai_severity: 'high',
           ai_analysis: 'Citizen reported child emergency.',

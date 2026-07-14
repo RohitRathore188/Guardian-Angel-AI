@@ -42,31 +42,46 @@ export default function DashboardPage() {
   const [demoModeActive, setDemoModeActive] = useState(true)
 
   const generateDemoCases = () => {
-    const baseLat = 13.0827
-    const baseLng = 80.2707
+    const cities = [
+      { name: 'Delhi', lat: 28.6139, lng: 77.2090 },
+      { name: 'Mumbai', lat: 19.0760, lng: 72.8777 },
+      { name: 'Indore', lat: 22.7196, lng: 75.8577 },
+      { name: 'Bhopal', lat: 23.2599, lng: 77.4126 },
+      { name: 'Hyderabad', lat: 17.3850, lng: 78.4867 },
+      { name: 'Bengaluru', lat: 12.9716, lng: 77.5946 },
+      { name: 'Lucknow', lat: 26.8467, lng: 80.9462 },
+      { name: 'Jaipur', lat: 26.9124, lng: 75.7873 },
+      { name: 'Pune', lat: 18.5204, lng: 73.8567 },
+      { name: 'Ahmedabad', lat: 23.0225, lng: 72.5714 },
+      { name: 'Kolkata', lat: 22.5726, lng: 88.3639 },
+      { name: 'Chandigarh', lat: 30.7333, lng: 76.7794 },
+      { name: 'Guwahati', lat: 26.1445, lng: 91.7362 },
+      { name: 'Kochi', lat: 9.9312, lng: 76.2673 },
+      { name: 'Patna', lat: 25.5941, lng: 85.1376 },
+      { name: 'Nagpur', lat: 21.1458, lng: 79.0882 },
+      { name: 'Surat', lat: 21.1702, lng: 72.8311 },
+      { name: 'Raipur', lat: 21.2514, lng: 81.6296 },
+      { name: 'Varanasi', lat: 25.3176, lng: 82.9739 },
+      { name: 'Chennai', lat: 13.0827, lng: 80.2707 }
+    ]
     const generated: Case[] = []
     
     for (let i = 1; i <= 40; i++) {
-      const offsetLat = (Math.random() - 0.5) * 0.12 // Slightly tighter search radius to keep it dense
-      const offsetLng = (Math.random() - 0.5) * 0.12
-      const lat = baseLat + offsetLat
-      let lng = baseLng + offsetLng
-      
-      // Prevent points from spawning in the ocean (East of Chennai coastline)
-      const coastLine = 80.275 + (lat - 13.0827) * 0.08
-      if (lng > coastLine) {
-        lng = baseLng - Math.abs(offsetLng) // Mirror inland
-      }
+      const city = cities[(i - 1) % cities.length]
+      const offsetLat = (Math.random() - 0.5) * 0.05
+      const offsetLng = (Math.random() - 0.5) * 0.05
+      const lat = city.lat + offsetLat
+      const lng = city.lng + offsetLng
       
       const severity = i % 4 === 0 ? 'critical' : i % 3 === 0 ? 'high' : 'moderate'
       const status = i % 5 === 0 ? 'closed' : i % 3 === 0 ? 'rescued' : i % 2 === 0 ? 'dispatched' : 'reported'
       
       generated.push({
         id: `democase-${1000 + i}`,
-        location: { lat, lng, address: `${100 + i} Main Street, Chennai Sector ${i % 5}` },
+        location: { lat, lng, address: `Rescue Sector ${i}, Near Metro Terminal, ${city.name}` },
         status,
         ai_severity: severity,
-        ai_analysis: `Demo AI Scan: Detected potential minor, estimated age ${2 + (i % 6)} years old, located outdoors in ${severity === 'critical' ? 'heavy weather exposure hazards' : 'stable environmental conditions'}. Scan confidence is ${85 + (i % 15)}%.`,
+        ai_analysis: `Demo AI Scan: Detected potential minor in ${city.name}, estimated age ${2 + (i % 6)} years old, located outdoors in ${severity === 'critical' ? 'heavy weather exposure hazards' : 'stable environmental conditions'}. Scan confidence is ${85 + (i % 15)}%.`,
         ai_dispatch_reason: `System auto-route allocated to nearest ${severity === 'critical' ? 'Precinct Cruiser' : 'NGO Shelter'} unit.`,
         created_at: new Date(Date.now() - i * 3600000).toISOString(),
         evidence: [{ file_url: 'https://placehold.co/400x300/111118/e94560?text=Scan+Photo' }]
@@ -82,9 +97,24 @@ export default function DashboardPage() {
   const showHeatmap = false
   const showTraffic = false
   const showSearchZones = true
-  const [opRadius, setOpRadius] = useState<number>(5) // default 5 KM
-  const authLat = 13.0827
-  const authLng = 80.2707
+  const [opRadius, setOpRadius] = useState<number>(10000) // default 10000 KM (All Cases - National)
+  
+  // Dynamic authority coordinates center based on active cases
+  const getAuthCenter = () => {
+    if (selectedCase) {
+      return { lat: selectedCase.location.lat, lng: selectedCase.location.lng }
+    }
+    if (cases.length > 0) {
+      const active = cases.filter(c => c.status !== 'closed')
+      if (active.length > 0) {
+        return { lat: active[0].location.lat, lng: active[0].location.lng }
+      }
+      return { lat: cases[0].location.lat, lng: cases[0].location.lng }
+    }
+    return { lat: 20.5937, lng: 78.9629 } // India Center fallback
+  }
+
+  const { lat: authLat, lng: authLng } = getAuthCenter()
 
   // ── Multi-Role Views Adaptations ──
   const [activeRoleOverride, setActiveRoleOverride] = useState<string | null>(null)
@@ -446,9 +476,9 @@ export default function DashboardPage() {
           ai_dispatch_reason: payload.new?.ai_dispatch_reason || '',
           evidence: payload.new?.evidence || [],
           location: {
-            address: payload.new?.address || 'Chennai Central',
-            lat: parseFloat(payload.new?.latitude) || 13.0827,
-            lng: parseFloat(payload.new?.longitude) || 80.2707
+            address: payload.new?.address || 'India (Default View)',
+            lat: parseFloat(payload.new?.latitude) || 20.5937,
+            lng: parseFloat(payload.new?.longitude) || 78.9629
           }
         };
         globalEventBus.publish({
