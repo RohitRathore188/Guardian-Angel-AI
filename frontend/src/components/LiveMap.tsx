@@ -561,6 +561,7 @@ export default function LiveMap({
               <option value={2}>2 KM Radius</option>
               <option value={5}>5 KM Radius</option>
               <option value={10}>10 KM Radius</option>
+              <option value={10000}>All Cases (National)</option>
             </select>
           </div>
         )}
@@ -830,6 +831,18 @@ export default function LiveMap({
           /* Standard dashboard mode: all case markers */
           cases.map((c) => {
             const markerIcon = c.ai_severity === 'critical' ? gisIcons.Emergency : gisIcons.Police;
+            const isNew = c.status === 'reported';
+            const isDispatched = c.status === 'dispatched';
+
+            // Generate mock route points for cases that are dispatched
+            const mockRoute: [number, number][] = [
+              [c.location.lat - 0.015, c.location.lng - 0.018],
+              [c.location.lat - 0.008, c.location.lng - 0.010],
+              [c.location.lat, c.location.lng]
+            ];
+            const vehiclePos = getProgressCoordinate(mockRoute, routeProgress);
+            const vehicleIcon = c.ai_severity === 'critical' ? gisIcons.Hospital : gisIcons.Police;
+
             return (
               <span key={c.id}>
                 <Marker
@@ -839,7 +852,7 @@ export default function LiveMap({
                     click: () => onCaseSelect(c),
                   }}
                 />
-                {c.status === 'reported' && (
+                {isNew && (
                   <Circle
                     center={[c.location.lat, c.location.lng]}
                     radius={1500}
@@ -851,6 +864,29 @@ export default function LiveMap({
                       className: 'new-case-highlight-pulse'
                     }}
                   />
+                )}
+                {isDispatched && (
+                  <>
+                    <Polyline 
+                      positions={mockRoute} 
+                      pathOptions={{ 
+                        color: c.ai_severity === 'critical' ? '#3b82f6' : '#ef4444', 
+                        weight: 3, 
+                        className: `animated-route-line ${c.ai_severity === 'critical' ? 'route-hospital' : 'route-police'}` 
+                      }} 
+                    />
+                    {vehiclePos && (
+                      <Marker position={vehiclePos} icon={vehicleIcon}>
+                        <Popup>
+                          <div className="text-[10px] bg-dark-950 text-white p-2 rounded border border-white/10">
+                            <p className="font-bold text-primary">🚨 DISPATCH ROUTE ACTIVE</p>
+                            <p className="text-[8.5px] text-slate-400 mt-1">Vehicle responding to Case #{c.id.slice(0, 8)}</p>
+                            <p className="text-[8.5px] text-slate-400">Destination: {c.location.address}</p>
+                          </div>
+                        </Popup>
+                      </Marker>
+                    )}
+                  </>
                 )}
               </span>
             );

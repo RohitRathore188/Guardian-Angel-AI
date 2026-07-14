@@ -56,17 +56,26 @@ export default function LandingPage() {
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 pt-4 justify-center lg:justify-start">
             {session ? (
-              <button
-                onClick={() => {
-                  if (profile?.role === 'admin') navigate('/admin')
-                  else if (profile?.role === 'citizen') navigate('/citizen-dashboard')
-                  else navigate('/dashboard')
-                }}
-                className="btn-primary flex items-center justify-center gap-3 px-8 py-4 text-base rounded-xl cursor-pointer"
-              >
-                <Shield className="w-5 h-5" />
-                {profile?.role === 'citizen' ? 'Access Citizen Portal' : 'Go to Command Deck'}
-              </button>
+              <>
+                <button
+                  onClick={() => navigate('/report')}
+                  className="btn-primary flex items-center justify-center gap-3 px-8 py-4 text-base rounded-xl cursor-pointer font-bold animate-pulse"
+                >
+                  <AlertTriangle className="w-5 h-5" />
+                  Report Emergency
+                </button>
+                <button
+                  onClick={() => {
+                    if (profile?.role === 'admin') navigate('/admin')
+                    else if (profile?.role === 'citizen') navigate('/citizen-dashboard')
+                    else navigate('/dashboard')
+                  }}
+                  className="btn-secondary flex items-center justify-center gap-3 px-8 py-4 text-base rounded-xl cursor-pointer"
+                >
+                  <Shield className="w-5 h-5" />
+                  {profile?.role === 'citizen' ? 'Access Citizen Portal' : 'Go to Command Deck'}
+                </button>
+              </>
             ) : (
               <>
                 <button
