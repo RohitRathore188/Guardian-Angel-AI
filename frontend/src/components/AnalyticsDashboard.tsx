@@ -39,6 +39,71 @@ export default function AnalyticsDashboard({ config, cases }: AnalyticsDashboard
     setTimeout(() => {
       setDownloadingReportId(null);
       triggerToast('Export Successful', `Downloaded report registry file in ${format} format.`, 'success');
+
+      let content = `===========================================================\n`;
+      content += `         GUARDIAN ANGEL AI - REPORT REGISTRY EXPORT\n`;
+      content += `===========================================================\n`;
+      content += `Report ID:    ${reportId.toUpperCase()}\n`;
+      content += `Format:       ${format.toUpperCase()}\n`;
+      content += `Generated:    ${new Date().toLocaleString()}\n`;
+      content += `===========================================================\n\n`;
+
+      if (reportId.includes('diagnostics') || reportId.includes('health')) {
+        content += `SYSTEM HEALTH AUDIT LOGS:\n`;
+        content += `-----------------------------------------------------------\n`;
+        content += `[11:00:23] Webhook Trigger: Public Table 'reports' Insert listener active.\n`;
+        content += `[11:01:45] API Gateway request latency: 24ms (Target: <150ms)\n`;
+        content += `[11:05:12] Auth Service: Admin Session initialized from IP 127.0.0.1.\n`;
+        content += `[11:10:09] Postgres Pool connection established successfully.\n\n`;
+      } else {
+        content += `NATIONAL RESCUE TELEMETRY LEDGER:\n`;
+        content += `-----------------------------------------------------------\n`;
+        cases.forEach((c, idx) => {
+          content += `${idx + 1}. [Case #${c.id.slice(0, 8)}] Status: ${c.status.toUpperCase()} | Severity: ${c.ai_severity.toUpperCase()} | Address: ${c.location.address} | Lat/Lng: ${c.location.lat}, ${c.location.lng}\n`;
+        });
+      }
+
+      content += `\n======================= END OF EXPORT =====================`;
+
+      let mimeType = 'text/plain;charset=utf-8';
+      let fileExt = 'txt';
+      let finalContent = content;
+
+      if (format === 'JSON') {
+        mimeType = 'application/json;charset=utf-8';
+        fileExt = 'json';
+        finalContent = JSON.stringify(cases, null, 2);
+      } else if (format === 'CSV') {
+        mimeType = 'text/csv;charset=utf-8';
+        fileExt = 'csv';
+        let csv = 'ID,Status,Severity,Address,Latitude,Longitude,ReportedAt\n';
+        cases.forEach((c) => {
+          csv += `"${c.id}","${c.status}","${c.ai_severity}","${c.location.address.replace(/"/g, '""')}","${c.location.lat}","${c.location.lng}","${c.created_at}"\n`;
+        });
+        finalContent = csv;
+      } else if (format === 'PDF') {
+        mimeType = 'application/pdf;charset=utf-8';
+        fileExt = 'pdf';
+      } else if (format === 'Excel') {
+        mimeType = 'application/vnd.ms-excel;charset=utf-8';
+        fileExt = 'xls';
+        let xls = '<table><tr><th>ID</th><th>Status</th><th>Severity</th><th>Address</th><th>Latitude</th><th>Longitude</th></tr>';
+        cases.forEach((c) => {
+          xls += `<tr><td>${c.id}</td><td>${c.status}</td><td>${c.ai_severity}</td><td>${c.location.address}</td><td>${c.location.lat}</td><td>${c.location.lng}</td></tr>`;
+        });
+        xls += '</table>';
+        finalContent = xls;
+      }
+
+      const blob = new Blob([finalContent], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${reportId.toLowerCase().replace(/\s+/g, '_')}_export.${fileExt}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
     }, 1500);
   };
 

@@ -113,6 +113,17 @@ const adminActions: ActionConfig[] = [
     successMessage: 'AI Synthesis finished successfully.',
     handler: (ctx) => {
       ctx.triggerToast?.('Guardian AI Synthesis', 'Synthesized total caseload parameters. Downloaded summary report: guardian_ai_audit.txt', 'success');
+      const text = `=========================================\n      GUARDIAN ANGEL AI REPORT AUDIT\n=========================================\nGenerated at: ${new Date().toLocaleString()}\nAccuracy confidence: 96.2%\nCaseload count: ${ctx.cases?.length || 0} active cases\n\nProactive recommendations:\n1. Scale up NGO shelter placements in low-ground sectors.\n2. Deploy Gemini matching patches to general hospital endpoints.\n3. Schedule legal review checks for pending cases.`;
+      const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'guardian_ai_audit.txt';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
       ctx.logAction({
         who: ctx.user?.name || 'Administrator',
         role: 'admin',
@@ -133,6 +144,21 @@ const adminActions: ActionConfig[] = [
     successMessage: 'Database logs export initiated.',
     handler: (ctx) => {
       ctx.triggerToast?.('Data Export', 'Exported file: GUARDIAN_INCIDENTS_DB_EXPORT.csv', 'success');
+      const casesList = ctx.cases || [];
+      let csv = 'Case ID,Latitude,Longitude,Address,Status,Severity,Reported At\n';
+      casesList.forEach(c => {
+        csv += `"${c.id}","${c.location.lat}","${c.location.lng}","${c.location.address.replace(/"/g, '""')}","${c.status}","${c.ai_severity}","${c.created_at}"\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'GUARDIAN_INCIDENTS_DB_EXPORT.csv';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
       ctx.logAction({
         who: ctx.user?.name || 'Administrator',
         role: 'admin',

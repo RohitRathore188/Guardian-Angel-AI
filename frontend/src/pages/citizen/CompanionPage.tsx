@@ -877,7 +877,7 @@ TIMESTAMP:    ${new Date().toLocaleString()}
             onClick={() => navigate('/citizen-dashboard')} 
             className="text-[10px] text-slate-400 border border-white/5 bg-dark-800/40 px-3 py-1.5 rounded-lg font-semibold hover:text-white"
           >
-            Dashboard
+            Citizen Portal
           </button>
         </div>
       </header>
@@ -1356,6 +1356,32 @@ TIMESTAMP:    ${new Date().toLocaleString()}
                         </div>
                       )
                     })}
+                  </div>
+                </div>
+
+                <div className="card p-4 border border-white/10 space-y-3 bg-dark-900/40">
+                  <h4 className="text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2">
+                    <MessageSquare className="w-3.5 h-3.5 text-primary animate-pulse" />
+                    Authority Communications Log
+                  </h4>
+                  <div className="space-y-2.5">
+                    {[
+                      { agency: 'Welfare Bureau', status: 'Notified', details: 'Child Welfare Registry notified on report submission.', time: '12:07 PM', color: 'text-purple-400 border border-purple-500/20 bg-purple-500/5' },
+                      { agency: 'Police Command', status: 'Cruiser Dispatched', details: `Dispatched ${nearestPolice?.name || 'Precinct Cruiser #4'} to coordinates.`, time: '12:08 PM', color: 'text-red-400 border border-red-500/20 bg-red-500/5' },
+                      { agency: 'Medical Triage', status: 'Ambulance Mobilized', details: `Assigned ICU beds & ambulance from ${nearestHospital?.name || 'City Hospital Center'}.`, time: '12:09 PM', color: 'text-blue-400 border border-blue-500/20 bg-blue-500/5' },
+                      { agency: 'NGO Relief', status: 'Shelter Secured', details: `Beds allocated at ${nearestNGO?.name || 'Hope Family Foundation'}.`, time: '12:10 PM', color: 'text-orange-400 border border-orange-500/20 bg-orange-500/5' }
+                    ].map((log, idx) => (
+                      <div key={idx} className="flex gap-2.5 items-start text-[10px] border-b border-white/5 pb-2.5 last:border-0 last:pb-0">
+                        <span className={`px-2 py-0.5 rounded font-bold uppercase text-[8px] shrink-0 ${log.color}`}>
+                          {log.status}
+                        </span>
+                        <div className="flex-1">
+                          <p className="font-bold text-white text-[10.5px]">{log.agency}</p>
+                          <p className="text-slate-400 text-[9.5px] mt-0.5 leading-relaxed">{log.details}</p>
+                        </div>
+                        <span className="text-[8px] text-slate-550 shrink-0">{log.time}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>

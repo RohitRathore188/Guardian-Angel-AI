@@ -225,18 +225,36 @@ export default function LiveMap({
     }
   }, [selectedCase])
 
-  // Fit map bounds to show all active cases on load
+  const [hasFitInitialBounds, setHasFitInitialBounds] = useState(false)
+
+  // Fit map bounds to show all active cases on load only once
   useEffect(() => {
-    if (cases.length > 0) {
+    if (cases.length > 0 && !hasFitInitialBounds) {
       const activeCoords = cases
         .filter((c) => c.location && c.location.lat !== 0)
         .map((c) => [c.location.lat, c.location.lng] as [number, number])
       if (activeCoords.length > 0) {
         setBoundsList(activeCoords)
         setFitBoundsTrigger((prev) => prev + 1)
+        setHasFitInitialBounds(true)
       }
     }
-  }, [cases])
+  }, [cases, hasFitInitialBounds])
+
+  const [routeProgress, setRouteProgress] = useState(0)
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRouteProgress((prev) => (prev + 1) % 100)
+    }, 400)
+    return () => clearInterval(interval)
+  }, [])
+
+  const getProgressCoordinate = (route: [number, number][], progressPercent: number): [number, number] | null => {
+    if (!route || route.length === 0) return null
+    const index = Math.floor((progressPercent / 100) * route.length)
+    return route[Math.min(index, route.length - 1)]
+  }
 
   const [gpsLocation, setGpsLocation] = useState<[number, number] | null>(null)
 
@@ -466,7 +484,7 @@ export default function LiveMap({
         
         /* Premium GIS map contrast filters */
         .leaflet-tile-container {
-          filter: brightness(0.7) contrast(1.25) saturate(1.15) hue-rotate(5deg);
+          filter: brightness(0.95) contrast(1.05) saturate(1.1);
         }
 
         /* Vignette overlay styling */
@@ -617,6 +635,7 @@ export default function LiveMap({
               ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
               : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
           }
+          subdomains="abcd"
         />
 
         <MapControlsHandler centerCoords={centerTarget} bounds={boundsList} fitBoundsTrigger={fitBoundsTrigger} />
@@ -748,13 +767,61 @@ export default function LiveMap({
             {toggleRoutes && mapConfig.visibleLayers.includes('routes') && (
               <>
                 {nearestHospital && hospitalRoute.length > 0 && (
-                  <Polyline positions={hospitalRoute} pathOptions={{ color: '#3b82f6', weight: 3.5, className: 'animated-route-line route-hospital' }} />
+                  <>
+                    <Polyline positions={hospitalRoute} pathOptions={{ color: '#3b82f6', weight: 3.5, className: 'animated-route-line route-hospital' }} />
+                    {(() => {
+                      const pos = getProgressCoordinate(hospitalRoute, routeProgress)
+                      return pos ? (
+                        <Marker position={pos} icon={gisIcons.Hospital}>
+                          <Popup>
+                            <div className="text-[10px] bg-dark-950 text-white p-2 rounded border border-white/10">
+                              <p className="font-bold text-primary">🚑 AMBULANCE EN ROUTE</p>
+                              <p className="text-[8.5px] text-slate-400 mt-1">Origin: {nearestHospital.name}</p>
+                              <p className="text-[8.5px] text-slate-400">Destination: {selectedCase.location.address}</p>
+                            </div>
+                          </Popup>
+                        </Marker>
+                      ) : null
+                    })()}
+                  </>
                 )}
                 {nearestPolice && policeRoute.length > 0 && (
-                  <Polyline positions={policeRoute} pathOptions={{ color: '#ef4444', weight: 3.5, className: 'animated-route-line route-police' }} />
+                  <>
+                    <Polyline positions={policeRoute} pathOptions={{ color: '#ef4444', weight: 3.5, className: 'animated-route-line route-police' }} />
+                    {(() => {
+                      const pos = getProgressCoordinate(policeRoute, (routeProgress + 40) % 100)
+                      return pos ? (
+                        <Marker position={pos} icon={gisIcons.Police}>
+                          <Popup>
+                            <div className="text-[10px] bg-dark-950 text-white p-2 rounded border border-white/10">
+                              <p className="font-bold text-red-400">🚓 POLICE CRUISER DISPATCHED</p>
+                              <p className="text-[8.5px] text-slate-400 mt-1">Origin: {nearestPolice.name}</p>
+                              <p className="text-[8.5px] text-slate-400">Destination: {selectedCase.location.address}</p>
+                            </div>
+                          </Popup>
+                        </Marker>
+                      ) : null
+                    })()}
+                  </>
                 )}
                 {nearestVolunteer && volunteerRoute.length > 0 && (
-                  <Polyline positions={volunteerRoute} pathOptions={{ color: '#10b981', weight: 3.5, className: 'animated-route-line route-volunteer' }} />
+                  <>
+                    <Polyline positions={volunteerRoute} pathOptions={{ color: '#10b981', weight: 3.5, className: 'animated-route-line route-volunteer' }} />
+                    {(() => {
+                      const pos = getProgressCoordinate(volunteerRoute, (routeProgress + 75) % 100)
+                      return pos ? (
+                        <Marker position={pos} icon={gisIcons.Volunteer}>
+                          <Popup>
+                            <div className="text-[10px] bg-dark-950 text-white p-2 rounded border border-white/10">
+                              <p className="font-bold text-emerald-400">🛵 NEAREST VOLUNTEER SQUAD</p>
+                              <p className="text-[8.5px] text-slate-400 mt-1">Origin: {nearestVolunteer.name}</p>
+                              <p className="text-[8.5px] text-slate-400">Destination: {selectedCase.location.address}</p>
+                            </div>
+                          </Popup>
+                        </Marker>
+                      ) : null
+                    })()}
+                  </>
                 )}
               </>
             )}
