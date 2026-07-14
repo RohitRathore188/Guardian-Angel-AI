@@ -447,6 +447,14 @@ export default function LiveMap({
         .gis-pulse-blue { animation: pulse-blue-flash 1.5s infinite; }
         .gis-pulse-green { animation: pulse-green-flash 1.5s infinite; }
         .gis-pulse-orange { animation: pulse-orange-flash 1.5s infinite; }
+        .new-case-highlight-pulse {
+          animation: map-pulse 1.8s infinite ease-in-out;
+        }
+        @keyframes map-pulse {
+          0% { stroke-opacity: 0.8; fill-opacity: 0.25; stroke-width: 2px; }
+          50% { stroke-opacity: 0.2; fill-opacity: 0.05; stroke-width: 4px; }
+          100% { stroke-opacity: 0.8; fill-opacity: 0.25; stroke-width: 2px; }
+        }
         
         .animated-route-line {
           stroke-dasharray: 8, 8;
@@ -456,6 +464,25 @@ export default function LiveMap({
           to { stroke-dashoffset: -20; }
         }
       `}</style>
+
+      {/* Top-Left Location Search Overlay */}
+      <div className="absolute top-3 left-14 z-[1000] flex items-center bg-dark-900/90 border border-white/10 rounded-xl shadow-2xl backdrop-blur-md px-2.5 py-1 w-64 h-8">
+        <Icons.Search className="w-3.5 h-3.5 text-slate-400 mr-2 shrink-0" />
+        <form onSubmit={handleSearchSubmit} className="flex-1">
+          <input
+            type="text"
+            placeholder="Search location, address, city..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-transparent text-white text-[10.5px] placeholder-slate-400 focus:outline-none"
+          />
+        </form>
+        {searchQuery && (
+          <button onClick={() => setSearchQuery('')} className="text-slate-400 hover:text-white ml-1.5 text-xs">
+            ✕
+          </button>
+        )}
+      </div>
 
       {/* Floating HUD controls */}
       <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2 bg-dark-900/95 border border-white/10 text-white rounded-xl p-3 shadow-2xl backdrop-blur-md w-48 text-[11px]">
@@ -706,14 +733,28 @@ export default function LiveMap({
           cases.map((c) => {
             const markerIcon = c.ai_severity === 'critical' ? gisIcons.Emergency : gisIcons.Police;
             return (
-              <Marker
-                key={c.id}
-                position={[c.location.lat, c.location.lng]}
-                icon={markerIcon}
-                eventHandlers={{
-                  click: () => onCaseSelect(c),
-                }}
-              />
+              <span key={c.id}>
+                <Marker
+                  position={[c.location.lat, c.location.lng]}
+                  icon={markerIcon}
+                  eventHandlers={{
+                    click: () => onCaseSelect(c),
+                  }}
+                />
+                {c.status === 'reported' && (
+                  <Circle
+                    center={[c.location.lat, c.location.lng]}
+                    radius={1500}
+                    pathOptions={{
+                      fillColor: '#ef4444',
+                      fillOpacity: 0.15,
+                      color: '#ef4444',
+                      weight: 2,
+                      className: 'new-case-highlight-pulse'
+                    }}
+                  />
+                )}
+              </span>
             );
           })
         )}

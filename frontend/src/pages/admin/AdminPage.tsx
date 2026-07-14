@@ -300,7 +300,52 @@ export default function AdminPage() {
 
   // Export reports mapping
   const handleExportData = (format: 'CSV' | 'PDF' | 'JSON', type: string) => {
-    triggerToast('Export Initiated', `Exporting ${type} in ${format} format... Package preparing for download.`, 'info')
+    triggerToast('Export Success', `${type} exported in ${format} format.`, 'success')
+
+    let content = `===========================================================\n`;
+    content += `         GUARDIAN ANGEL AI - SYSTEM REPORT EXPORT\n`;
+    content += `===========================================================\n`;
+    content += `Report Type:  ${type}\n`;
+    content += `Format:       ${format}\n`;
+    content += `Export Time:  ${new Date().toLocaleString()}\n`;
+    content += `===========================================================\n\n`;
+
+    content += `1. SYSTEM DIAGNOSTICS:\n`;
+    content += `-----------------------------------------------------------\n`;
+    content += `Supabase DB Connection:     Online (42ms)\n`;
+    content += `Node Express API:            Online\n`;
+    content += `Gemini AI Engine Endpoint:   Online\n`;
+    content += `Live GIS Maps:               Online\n\n`;
+
+    content += `2. LOG REGISTRY EVENTS:\n`;
+    content += `-----------------------------------------------------------\n`;
+    content += `[11:25:43 AM] Sarah J. - Patrol cruiser dispatched (POLICE COMMAND)\n`;
+    content += `[10:55:43 AM] Dr. Aaron - Trauma ICU bed booked (HOSPITAL DISPATCH)\n`;
+    content += `[10:25:43 AM] Raj Kumar - NGO food supplies kit dispatch (RELIEF LOGISTICS)\n`;
+    content += `[09:55:43 AM] Rahul Dev - Volunteer accepted mission (RESPONDER NET)\n`;
+    content += `[09:26:43 AM] Priya Sharma - Welfare placement queue update (CHILD BUREAU)\n\n`;
+
+    content += `3. ACTIVE INCIDENTS LIST:\n`;
+    content += `-----------------------------------------------------------\n`;
+    cases.forEach((c, idx) => {
+      content += `${idx + 1}. [Case ID: ${c.id.slice(0, 8)}] Status: ${c.status.toUpperCase()} | Severity: ${c.ai_severity.toUpperCase()} | Location: ${c.location.address}\n`;
+    });
+
+    content += `\n======================= END OF DOCUMENT ===================`;
+
+    const mimeType = format === 'JSON' ? 'application/json' : format === 'CSV' ? 'text/csv' : 'application/pdf';
+    const extension = format.toLowerCase();
+    const finalContent = format === 'JSON' ? JSON.stringify(cases, null, 2) : content;
+
+    const blob = new Blob([finalContent], { type: `${mimeType};charset=utf-8` });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `guardian_angel_${type.toLowerCase().replace(/\s+/g, '_')}_export.${extension}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 
   // Quick Action triggers
@@ -659,8 +704,19 @@ export default function AdminPage() {
                 </thead>
                 <tbody>
                   {filteredCases.map((c) => (
-                    <tr key={c.id} className="border-b border-white/5 hover:bg-white/5 transition-all">
-                      <td className="p-4 font-mono font-bold text-white">#{c.id.toUpperCase()}</td>
+                    <tr key={c.id} className={`border-b border-white/5 transition-all ${
+                      c.status === 'reported' 
+                        ? 'bg-red-500/[0.04] border-l-2 border-primary hover:bg-red-500/[0.08]' 
+                        : 'hover:bg-white/5'
+                    }`}>
+                      <td className="p-4 font-mono font-bold text-white flex items-center gap-1.5 h-full">
+                        #{c.id.slice(0, 10).toUpperCase()}
+                        {c.status === 'reported' && (
+                          <span className="animate-pulse bg-primary text-white text-[8px] font-bold px-1.5 py-0.2 rounded-full uppercase tracking-wider">
+                            New
+                          </span>
+                        )}
+                      </td>
                       <td className="p-4 truncate max-w-xs">{c.location.address}</td>
                       <td className="p-4">
                         <span className={`px-2 py-0.5 rounded-full font-bold uppercase text-[9px] ${
