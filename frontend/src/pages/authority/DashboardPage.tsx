@@ -422,34 +422,36 @@ export default function DashboardPage() {
   }
 
   const loadCases = async () => {
-    if (demoModeActive) {
-      setCases(generateDemoCases())
-      return
-    }
     try {
       const response = await apiClient.get('/api/cases')
       if (response.data && Array.isArray(response.data)) {
-        setCases(response.data)
+        const realReports = response.data.filter((c: Case) => !c.id.startsWith('democase-'))
+        if (demoModeActive) {
+          const demoCases = generateDemoCases()
+          setCases([...realReports, ...demoCases])
+        } else {
+          setCases(response.data)
+        }
+      } else {
+        if (demoModeActive) setCases(generateDemoCases())
       }
     } catch (err) {
       console.warn('Backend API /api/cases offline. Using mock cases for demonstration.', err)
-      setCases(mockCases)
+      if (demoModeActive) {
+        setCases(generateDemoCases())
+      } else {
+        setCases(mockCases)
+      }
     }
   }
 
   const handleToggleDemoData = () => {
-    if (!demoModeActive) {
-      setCases(generateDemoCases())
-      setDemoModeActive(true)
-    } else {
-      setDemoModeActive(false)
-      loadCases()
-    }
+    setDemoModeActive(!demoModeActive)
   }
 
   useEffect(() => {
     loadCases()
-  }, [])
+  }, [demoModeActive])
 
   // Supabase Realtime subscription
   useEffect(() => {

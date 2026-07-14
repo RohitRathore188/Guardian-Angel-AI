@@ -223,19 +223,25 @@ export default function AdminPage() {
     try {
       const response = await apiClient.get('/api/cases')
       if (response.data && Array.isArray(response.data)) {
-        setCases(response.data)
+        const realReports = response.data.filter((c: Case) => !c.id.startsWith('democase-'))
+        if (mockModeActive) {
+          setCases([...realReports, ...generateDemoCases()])
+        } else {
+          setCases(response.data)
+        }
+      } else {
+        if (mockModeActive) setCases(generateDemoCases())
       }
     } catch (err) {
       console.warn('Backend API /api/cases offline. Keeping generated high fidelity data.', err)
+      if (mockModeActive) {
+        setCases(generateDemoCases())
+      }
     }
   }
 
   useEffect(() => {
-    if (mockModeActive) {
-      setCases(generateDemoCases())
-    } else {
-      fetchCases()
-    }
+    fetchCases()
   }, [mockModeActive])
 
   // Search & Filter Cases
